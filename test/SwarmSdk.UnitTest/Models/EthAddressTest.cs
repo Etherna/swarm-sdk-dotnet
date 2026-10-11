@@ -127,6 +127,35 @@ namespace Etherna.SwarmSdk.Models
         }
 
         [Fact]
+        public void ComparisonIsByAddressBytes()
+        {
+            var a = new EthAddress("0x0000000000000000000000000000000000000001");
+            var b = new EthAddress("0x0000000000000000000000000000000000000002");
+            var c = new EthAddress("0x0100000000000000000000000000000000000000");
+
+            Assert.True(a.CompareTo(b) < 0);
+            Assert.True(b.CompareTo(a) > 0);
+            Assert.Equal(0, a.CompareTo(new EthAddress("0x0000000000000000000000000000000000000001")));
+            Assert.True(a < b);
+            Assert.True(a <= b);
+            Assert.True(c > b);
+            Assert.True(c >= b);
+        }
+
+        [Fact]
+        public void OrderingByAddressUsesTheDefaultComparer()
+        {
+            var a = new EthAddress("0x0000000000000000000000000000000000000001");
+            var b = new EthAddress("0x0000000000000000000000000000000000000002");
+            var c = new EthAddress("0x0100000000000000000000000000000000000000");
+
+            //an EthAddress key compiles without IComparable, and the sort threw at runtime without it
+            var ordered = new[] { c, a, b }.OrderBy(address => address).ToArray();
+
+            Assert.Equal([a, b, c], ordered);
+        }
+
+        [Fact]
         public void TryParseHandlesValidAndInvalid()
         {
             Assert.True(EthAddress.TryParse("5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed", null, out var parsed));
