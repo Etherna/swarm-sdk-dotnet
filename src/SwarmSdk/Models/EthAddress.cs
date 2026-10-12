@@ -25,7 +25,7 @@ namespace Etherna.SwarmSdk.Models
 {
     [JsonConverter(typeof(EthAddressJsonConverter))]
     [TypeConverter(typeof(EthAddressTypeConverter))]
-    public readonly struct EthAddress : IEquatable<EthAddress>, IParsable<EthAddress>
+    public readonly struct EthAddress : IComparable<EthAddress>, IEquatable<EthAddress>, IParsable<EthAddress>
     {
         // Consts.
         public const int AddressSize = 20;
@@ -56,6 +56,7 @@ namespace Etherna.SwarmSdk.Models
         public static EthAddress Zero { get; } = new(new byte[AddressSize]);
 
         // Methods.
+        public int CompareTo(EthAddress other) => byteAddress.AsSpan().SequenceCompareTo(other.byteAddress);
         public bool Equals(EthAddress other) => byteAddress.AsSpan().SequenceEqual(other.byteAddress);
         public override bool Equals(object? obj) => obj is EthAddress other && Equals(other);
         public override int GetHashCode() => byteAddress.AsSpan().ToHashCode();
@@ -108,6 +109,10 @@ namespace Etherna.SwarmSdk.Models
         // Operator methods.
         public static bool operator ==(EthAddress left, EthAddress right) => left.Equals(right);
         public static bool operator !=(EthAddress left, EthAddress right) => !(left == right);
+        public static bool operator <(EthAddress left, EthAddress right) => left.CompareTo(right) < 0;
+        public static bool operator <=(EthAddress left, EthAddress right) => left.CompareTo(right) <= 0;
+        public static bool operator >(EthAddress left, EthAddress right) => left.CompareTo(right) > 0;
+        public static bool operator >=(EthAddress left, EthAddress right) => left.CompareTo(right) >= 0;
         
         // Implicit conversion operator methods.
         public static implicit operator EthAddress(string value) => new(value);
