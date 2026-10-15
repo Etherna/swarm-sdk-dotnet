@@ -18,6 +18,9 @@ namespace Etherna.SwarmSdk.Models
         bool isFrozen,
         bool isFullySynced,
         bool isHealthy,
+        bool enabled,
+        bool hasCommittedThisRound,
+        bool hasRevealedThisRound,
         int round,
         int lastWonRound,
         int lastPlayedRound,
@@ -30,6 +33,16 @@ namespace Etherna.SwarmSdk.Models
         public bool IsFrozen { get; } = isFrozen;
         public bool IsFullySynced { get; } = isFullySynced;
         public bool IsHealthy { get; } = isHealthy;
+
+        /// <summary>Whether the node will commit in new redistribution rounds. Sampling still runs while disabled.</summary>
+        public bool Enabled { get; } = enabled;
+
+        /// <summary>Whether the node has already committed in the current round. Operators can shut down without freeze risk when this is false.</summary>
+        public bool HasCommittedThisRound { get; } = hasCommittedThisRound;
+
+        /// <summary>Whether the node has revealed in the current round. After a commit, the node must reveal before it is safe to shut down.</summary>
+        public bool HasRevealedThisRound { get; } = hasRevealedThisRound;
+
         public int Round { get; } = round;
         public int LastWonRound { get; } = lastWonRound;
         public int LastPlayedRound { get; } = lastPlayedRound;
