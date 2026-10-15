@@ -36,18 +36,20 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <summary>
         /// Create a grantee list
         /// </summary>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePostAsync(string swarm_postage_batch_id, ActGranteesCreateRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePostAsync(string swarm_postage_batch_id, ActGranteesCreateRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, string? swarm_act_history_address = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
         /// Get the grantee list
         /// </summary>
         /// <param name="address">Grantee list reference</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Collections.Generic.ICollection<string>> GranteeGetAsync(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<System.Collections.Generic.ICollection<string>> GranteeGetAsync(string address, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -57,9 +59,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Add or remove grantees from an existing grantee list
         /// </remarks>
         /// <param name="address">Grantee list reference</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePatchAsync(string address, string swarm_act_history_address, string swarm_postage_batch_id, ActGranteesPatchRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePatchAsync(string address, string swarm_act_history_address, string swarm_postage_batch_id, ActGranteesPatchRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -99,13 +102,21 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <summary>
         /// Retrieve headers containing the content type and length for the reference
         /// </summary>
-        /// <param name="address">Swarm address reference to content</param>
+        /// <remarks>
+        /// Identical to GET on the same reference except that no content is sent, so Range and conditional request headers are honored the same way.
+        /// </remarks>
+        /// <param name="address">Swarm address of chunk</param>
+        /// <param name="swarm_cache">Indicates whether downloaded data should be cached on the node. Default: cached (true)</param>
+        /// <param name="swarm_redundancy_strategy">Specify the retrieval strategy for redundant data. Values represent: NONE (0), DATA (1), PROX (2), RACE (3). NONE: no prefetching. DATA: prefetch only data chunks. PROX: prefetch chunks near this node. RACE: prefetch all chunks and use the first n to arrive. Multiple strategies can be cascaded if fallback mode is enabled. Default: NONE &gt; DATA &gt; PROX &gt; RACE</param>
+        /// <param name="swarm_redundancy_fallback_mode">Specify if the retrieve strategies (chunk prefetching on redundant data) are used in a fallback cascade. The default is true.</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
+        /// <param name="swarm_chunk_retrieval_timeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
         /// <param name="swarm_act_timestamp">ACT history Unix timestamp</param>
         /// <param name="swarm_act_publisher">ACT content publisher's public key</param>
         /// <param name="swarm_act_history_address">ACT history reference address</param>
-        /// <returns>The chunk exists.</returns>
+        /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string address, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -119,12 +130,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <br/>- postage index (bucket and bucket index) - 32:40 bytes \
         /// <br/>- timestamp - 40:48 bytes \
         /// <br/>- signature - 48:113 bytes</param>
-        /// <param name="swarm_act">Determines if the uploaded data should be treated as ACT content</param>
-        /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <param name="body">Chunk binary data containing at least 8 bytes.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ReferenceResponse> ChunksPostAsync(ulong? swarm_tag = null, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, bool? swarm_act = null, string? swarm_act_history_address = null, System.IO.Stream? body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ReferenceResponse> ChunksPostAsync(ulong? swarm_tag = null, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, System.IO.Stream body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -186,16 +195,21 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <summary>
         /// Retrieve headers with content type and length for the reference
         /// </summary>
-        /// <param name="address">Swarm address of content</param>
-        /// <param name="swarm_act_timestamp">ACT history Unix timestamp</param>
-        /// <param name="swarm_act_publisher">ACT content publisher's public key</param>
-        /// <param name="swarm_act_history_address">ACT history reference address</param>
+        /// <remarks>
+        /// Identical to GET on the same reference except that no content is sent, so Range and conditional request headers are honored the same way.
+        /// </remarks>
+        /// <param name="address">Swarm address of chunk</param>
+        /// <param name="swarm_cache">Indicates whether downloaded data should be cached on the node. Default: cached (true)</param>
         /// <param name="swarm_redundancy_strategy">Specify the retrieval strategy for redundant data. Values represent: NONE (0), DATA (1), PROX (2), RACE (3). NONE: no prefetching. DATA: prefetch only data chunks. PROX: prefetch chunks near this node. RACE: prefetch all chunks and use the first n to arrive. Multiple strategies can be cascaded if fallback mode is enabled. Default: NONE &gt; DATA &gt; PROX &gt; RACE</param>
         /// <param name="swarm_redundancy_fallback_mode">Specify if the retrieve strategies (chunk prefetching on redundant data) are used in a fallback cascade. The default is true.</param>
         /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
-        /// <returns>Chunk exists</returns>
+        /// <param name="swarm_chunk_retrieval_timeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
+        /// <param name="swarm_act_timestamp">ACT history Unix timestamp</param>
+        /// <param name="swarm_act_publisher">ACT content publisher's public key</param>
+        /// <param name="swarm_act_history_address">ACT history reference address</param>
+        /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -280,9 +294,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Pin a root hash by reference
         /// </summary>
         /// <param name="reference">Swarm reference of the root hash</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Pin already exists</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<Response> PinsPostAsync(string reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<Response> PinsPostAsync(string reference, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -350,9 +365,13 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Subscribe to GSOC payloads
         /// </summary>
         /// <param name="address">Single Owner Chunk address (which may have multiple payloads)</param>
-        /// <returns>Establishes a WebSocket subscription for incoming messages on the Single Owner Chunk address</returns>
+        /// <param name="swarm_soc_fieldsHeader">Comma separated list of Single Owner Chunk fields to be serialized and channeled on every incoming GSOC message, in the given order. Allowed values are: address, recoveredPubKey, identifier, signature, wrappedAddress, span, payload. When omitted it defaults to "payload". In order to have random access on the response bytes define payload as the last field in the list since it has variable length.</param>
+        /// <param name="swarm_cache_wrapped_chunkHeader">Indicates whether the wrapped chunk of every incoming GSOC message should be cached locally so that it can be resolved through the bytes endpoint (useful when the single owner chunk wraps a root chunk larger than 4KB).</param>
+        /// <param name="swarm_soc_fieldsQuery">Same as the swarm-soc-fields header, for clients that cannot set request headers (e.g. browser WebSocket). Takes precedence over the header when both are given.</param>
+        /// <param name="swarm_cache_wrapped_chunkQuery">Same as the swarm-cache-wrapped-chunk header, for clients that cannot set request headers (e.g. browser WebSocket). Takes precedence over the header when both are given.</param>
+        /// <returns>Establishes a WebSocket subscription for incoming messages on the Single Owner Chunk address. Each message is the binary serialization of the Single Owner Chunk fields requested through the swarm-soc-fields header or query parameter (defaults to the wrapped chunk payload). Pending messages are buffered per subscription up to a fixed limit; a client that does not keep up with the incoming rate misses the oldest of them, as they are discarded in favor of the newest ones.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task GsocSubscribeAsync(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task GsocSubscribeAsync(string address, string? swarm_soc_fieldsHeader = null, bool? swarm_cache_wrapped_chunkHeader = null, string? swarm_soc_fieldsQuery = null, bool? swarm_cache_wrapped_chunkQuery = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -373,11 +392,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_tag">Associate upload with an existing Tag UID</param>
         /// <param name="swarm_pin">Indicates whether the uploaded data should also be locally pinned on this node</param>
         /// <param name="swarm_deferred_upload">Indicates whether the uploaded data should be sent to the network immediately or deferred. Default: deferred (true)</param>
-        /// <param name="swarm_act">Determines if the uploaded data should be treated as ACT content</param>
-        /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <returns>Created</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ReferenceResponse> SocPostAsync(string owner, string id, string sig, System.IO.Stream body, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, bool? swarm_act = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ReferenceResponse> SocPostAsync(string owner, string id, string sig, System.IO.Stream body, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -405,9 +422,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_postage_batch_id">ID of Postage Batch that is used to upload data with</param>
         /// <param name="swarm_act">Determines if the uploaded data should be treated as ACT content</param>
         /// <param name="swarm_act_history_address">ACT history reference address</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Created</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<ReferenceResponse> FeedsPostAsync(string owner, string topic, string? type = null, bool? swarm_pin = null, string? swarm_postage_batch_id = null, bool? swarm_act = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ReferenceResponse> FeedsPostAsync(string owner, string topic, string? type = null, bool? swarm_pin = null, string? swarm_postage_batch_id = null, bool? swarm_act = null, string? swarm_act_history_address = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -432,9 +450,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Check content availability
         /// </summary>
         /// <param name="address">Root hash of content (can be of any type: collection, file, chunk)</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Returns if the content is retrievable</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<IsRetrievableResponse> StewardshipGetAsync(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<IsRetrievableResponse> StewardshipGetAsync(string address, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -442,9 +461,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// </summary>
         /// <param name="address">Re-uploads content for specified root hash (can be of any type: collection, file, chunk, etc.)</param>
         /// <param name="swarm_postage_batch_id">Postage batch to use for re-upload. The chunks are re-stamped with this batch.</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task StewardshipPutAsync(string address, string swarm_postage_batch_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task StewardshipPutAsync(string address, string swarm_postage_batch_id, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -795,6 +815,15 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Update the label of an existing postage batch
+        /// </summary>
+        /// <param name="batch_id">Swarm address of the stamp</param>
+        /// <returns>Label updated successfully</returns>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<Response> StampsPatchAsync(Body body, string batch_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Get extended bucket data of a batch
         /// </summary>
         /// <param name="batch_id">Swarm address of the stamp</param>
@@ -890,7 +919,18 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// </summary>
         /// <returns>Redistribution status info</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<RedistributionStatusResponse> RedistributionstateAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<RedistributionStatusResponse> RedistributionstateGetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Enable or disable participation in new redistribution rounds
+        /// </summary>
+        /// <remarks>
+        /// Controls whether the node will commit in a new redistribution round. Sampling still runs while disabled so that a later re-enable can commit in the following commit phase. Disabling does not abort an in-flight commit and does not skip reveal or claim for a round that already committed. Re-enabling during a commit phase that was already skipped does not retry that round. After a node restart participation is enabled again.
+        /// </remarks>
+        /// <returns>Participation flag updated</returns>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
+        System.Threading.Tasks.Task<RedistributionEnableResponse> RedistributionstatePatchAsync(RedistributionEnableRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -951,7 +991,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Get the staked amount.
         /// </summary>
         /// <remarks>
-        /// This endpoint fetches the total staked amount from the blockchain.
+        /// This endpoint fetches the total staked amount and the minimum additional deposit from the blockchain. The first deposit is at least 10 BZZ times 2^height. Subsequent deposits are at least 1 PLUR, or more if the price oracle has increased since the last deposit.
         /// </remarks>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
@@ -1075,9 +1115,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <summary>
         /// Create a grantee list
         /// </summary>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePostAsync(string swarm_postage_batch_id, ActGranteesCreateRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePostAsync(string swarm_postage_batch_id, ActGranteesCreateRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, string? swarm_act_history_address = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (body == null)
                 throw new System.ArgumentNullException("body");
@@ -1104,6 +1145,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
                     if (swarm_act_history_address != null)
                         request_.Headers.TryAddWithoutValidation("swarm-act-history-address", ConvertToString(swarm_act_history_address, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     var json_ = SerializeBody(body);
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
@@ -1193,9 +1237,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Get the grantee list
         /// </summary>
         /// <param name="address">Grantee list reference</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Collections.Generic.ICollection<string>> GranteeGetAsync(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<System.Collections.Generic.ICollection<string>> GranteeGetAsync(string address, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -1206,6 +1251,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Method = new System.Net.Http.HttpMethod("GET");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
 
@@ -1295,9 +1343,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Add or remove grantees from an existing grantee list
         /// </remarks>
         /// <param name="address">Grantee list reference</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePatchAsync(string address, string swarm_act_history_address, string swarm_postage_batch_id, ActGranteesPatchRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ActGranteesOperationResponse> GranteePatchAsync(string address, string swarm_act_history_address, string swarm_postage_batch_id, ActGranteesPatchRequest body, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -1328,6 +1377,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
                     if (swarm_deferred_upload != null)
                         request_.Headers.TryAddWithoutValidation("swarm-deferred-upload", ConvertToString(swarm_deferred_upload, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     var json_ = SerializeBody(body);
                     var content_ = new System.Net.Http.ByteArrayContent(json_);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
@@ -1679,13 +1731,21 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <summary>
         /// Retrieve headers containing the content type and length for the reference
         /// </summary>
-        /// <param name="address">Swarm address reference to content</param>
+        /// <remarks>
+        /// Identical to GET on the same reference except that no content is sent, so Range and conditional request headers are honored the same way.
+        /// </remarks>
+        /// <param name="address">Swarm address of chunk</param>
+        /// <param name="swarm_cache">Indicates whether downloaded data should be cached on the node. Default: cached (true)</param>
+        /// <param name="swarm_redundancy_strategy">Specify the retrieval strategy for redundant data. Values represent: NONE (0), DATA (1), PROX (2), RACE (3). NONE: no prefetching. DATA: prefetch only data chunks. PROX: prefetch chunks near this node. RACE: prefetch all chunks and use the first n to arrive. Multiple strategies can be cascaded if fallback mode is enabled. Default: NONE &gt; DATA &gt; PROX &gt; RACE</param>
+        /// <param name="swarm_redundancy_fallback_mode">Specify if the retrieve strategies (chunk prefetching on redundant data) are used in a fallback cascade. The default is true.</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
+        /// <param name="swarm_chunk_retrieval_timeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
         /// <param name="swarm_act_timestamp">ACT history Unix timestamp</param>
         /// <param name="swarm_act_publisher">ACT content publisher's public key</param>
         /// <param name="swarm_act_history_address">ACT history reference address</param>
-        /// <returns>The chunk exists.</returns>
+        /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string address, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -1696,6 +1756,21 @@ namespace Etherna.SwarmSdk.Clients.Bee
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
+
+                    if (swarm_cache != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-cache", ConvertToString(swarm_cache, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_strategy != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-strategy", ConvertToString(swarm_redundancy_strategy, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_fallback_mode != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-fallback-mode", ConvertToString(swarm_redundancy_fallback_mode, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_chunk_retrieval_timeout != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-chunk-retrieval-timeout", ConvertToString(swarm_chunk_retrieval_timeout, System.Globalization.CultureInfo.InvariantCulture));
 
                     if (swarm_act_timestamp != null)
                         request_.Headers.TryAddWithoutValidation("swarm-act-timestamp", ConvertToString(swarm_act_timestamp, System.Globalization.CultureInfo.InvariantCulture));
@@ -1741,6 +1816,17 @@ namespace Etherna.SwarmSdk.Clients.Bee
                             return response_.Content?.Headers;
                         }
                         else
+                        if (status_ == 206)
+                        {
+                            return response_.Content?.Headers;
+                        }
+                        else
+                        if (status_ == 304)
+                        {
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("The entity tag in If-None-Match matches the reference.", status_, responseText_, headers_, null);
+                        }
+                        else
                         if (status_ == 400)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
@@ -1759,6 +1845,28 @@ namespace Etherna.SwarmSdk.Clients.Bee
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new SwarmSdkApiException<ProblemDetails>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 412)
+                        {
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("A conditional request header was not satisfied.", status_, responseText_, headers_, null);
+                        }
+                        else
+                        if (status_ == 416)
+                        {
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("The requested range cannot be satisfied.", status_, responseText_, headers_, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Internal Server Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -1792,12 +1900,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <br/>- postage index (bucket and bucket index) - 32:40 bytes \
         /// <br/>- timestamp - 40:48 bytes \
         /// <br/>- signature - 48:113 bytes</param>
-        /// <param name="swarm_act">Determines if the uploaded data should be treated as ACT content</param>
-        /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <param name="body">Chunk binary data containing at least 8 bytes.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ReferenceResponse> ChunksPostAsync(ulong? swarm_tag = null, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, bool? swarm_act = null, string? swarm_act_history_address = null, System.IO.Stream? body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ReferenceResponse> ChunksPostAsync(ulong? swarm_tag = null, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, System.IO.Stream body = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -1814,12 +1920,6 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
                     if (swarm_postage_stamp != null)
                         request_.Headers.TryAddWithoutValidation("swarm-postage-stamp", ConvertToString(swarm_postage_stamp, System.Globalization.CultureInfo.InvariantCulture));
-
-                    if (swarm_act != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act", ConvertToString(swarm_act, System.Globalization.CultureInfo.InvariantCulture));
-
-                    if (swarm_act_history_address != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act-history-address", ConvertToString(swarm_act_history_address, System.Globalization.CultureInfo.InvariantCulture));
                     var content_ = new System.Net.Http.StreamContent(body);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/octet-stream");
                     request_.Content = content_;
@@ -2319,16 +2419,21 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <summary>
         /// Retrieve headers with content type and length for the reference
         /// </summary>
-        /// <param name="address">Swarm address of content</param>
-        /// <param name="swarm_act_timestamp">ACT history Unix timestamp</param>
-        /// <param name="swarm_act_publisher">ACT content publisher's public key</param>
-        /// <param name="swarm_act_history_address">ACT history reference address</param>
+        /// <remarks>
+        /// Identical to GET on the same reference except that no content is sent, so Range and conditional request headers are honored the same way.
+        /// </remarks>
+        /// <param name="address">Swarm address of chunk</param>
+        /// <param name="swarm_cache">Indicates whether downloaded data should be cached on the node. Default: cached (true)</param>
         /// <param name="swarm_redundancy_strategy">Specify the retrieval strategy for redundant data. Values represent: NONE (0), DATA (1), PROX (2), RACE (3). NONE: no prefetching. DATA: prefetch only data chunks. PROX: prefetch chunks near this node. RACE: prefetch all chunks and use the first n to arrive. Multiple strategies can be cascaded if fallback mode is enabled. Default: NONE &gt; DATA &gt; PROX &gt; RACE</param>
         /// <param name="swarm_redundancy_fallback_mode">Specify if the retrieve strategies (chunk prefetching on redundant data) are used in a fallback cascade. The default is true.</param>
         /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
-        /// <returns>Chunk exists</returns>
+        /// <param name="swarm_chunk_retrieval_timeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
+        /// <param name="swarm_act_timestamp">ACT history Unix timestamp</param>
+        /// <param name="swarm_act_publisher">ACT content publisher's public key</param>
+        /// <param name="swarm_act_history_address">ACT history reference address</param>
+        /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -2340,14 +2445,8 @@ namespace Etherna.SwarmSdk.Clients.Bee
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
 
-                    if (swarm_act_timestamp != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act-timestamp", ConvertToString(swarm_act_timestamp, System.Globalization.CultureInfo.InvariantCulture));
-
-                    if (swarm_act_publisher != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act-publisher", ConvertToString(swarm_act_publisher, System.Globalization.CultureInfo.InvariantCulture));
-
-                    if (swarm_act_history_address != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act-history-address", ConvertToString(swarm_act_history_address, System.Globalization.CultureInfo.InvariantCulture));
+                    if (swarm_cache != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-cache", ConvertToString(swarm_cache, System.Globalization.CultureInfo.InvariantCulture));
 
                     if (swarm_redundancy_strategy != null)
                         request_.Headers.TryAddWithoutValidation("swarm-redundancy-strategy", ConvertToString(swarm_redundancy_strategy, System.Globalization.CultureInfo.InvariantCulture));
@@ -2357,6 +2456,18 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
                     if (swarm_redundancy_level != null)
                         request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_chunk_retrieval_timeout != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-chunk-retrieval-timeout", ConvertToString(swarm_chunk_retrieval_timeout, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_act_timestamp != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-act-timestamp", ConvertToString(swarm_act_timestamp, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_act_publisher != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-act-publisher", ConvertToString(swarm_act_publisher, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_act_history_address != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-act-history-address", ConvertToString(swarm_act_history_address, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Method = new System.Net.Http.HttpMethod("HEAD");
 
                     var urlBuilder_ = new System.Text.StringBuilder();
@@ -2394,6 +2505,17 @@ namespace Etherna.SwarmSdk.Clients.Bee
                             return response_.Content?.Headers;
                         }
                         else
+                        if (status_ == 206)
+                        {
+                            return response_.Content?.Headers;
+                        }
+                        else
+                        if (status_ == 304)
+                        {
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("The entity tag in If-None-Match matches the reference.", status_, responseText_, headers_, null);
+                        }
+                        else
                         if (status_ == 400)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
@@ -2412,6 +2534,28 @@ namespace Etherna.SwarmSdk.Clients.Bee
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new SwarmSdkApiException<ProblemDetails>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 412)
+                        {
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("A conditional request header was not satisfied.", status_, responseText_, headers_, null);
+                        }
+                        else
+                        if (status_ == 416)
+                        {
+                            string responseText_ = ( response_.Content == null ) ? string.Empty : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("The requested range cannot be satisfied.", status_, responseText_, headers_, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Internal Server Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -3186,9 +3330,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Pin a root hash by reference
         /// </summary>
         /// <param name="reference">Swarm reference of the root hash</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Pin already exists</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<Response> PinsPostAsync(string reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<Response> PinsPostAsync(string reference, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (reference == null)
                 throw new System.ArgumentNullException("reference");
@@ -3199,6 +3344,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
                     request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
@@ -3232,7 +3380,17 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         ProcessResponse(client_, response_);
 
                         var status_ = (int)response_.StatusCode;
-                        if (status_ == 200 || status_ == 201)
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<Response>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 201)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<Response>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
@@ -3888,9 +4046,13 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Subscribe to GSOC payloads
         /// </summary>
         /// <param name="address">Single Owner Chunk address (which may have multiple payloads)</param>
-        /// <returns>Establishes a WebSocket subscription for incoming messages on the Single Owner Chunk address</returns>
+        /// <param name="swarm_soc_fieldsHeader">Comma separated list of Single Owner Chunk fields to be serialized and channeled on every incoming GSOC message, in the given order. Allowed values are: address, recoveredPubKey, identifier, signature, wrappedAddress, span, payload. When omitted it defaults to "payload". In order to have random access on the response bytes define payload as the last field in the list since it has variable length.</param>
+        /// <param name="swarm_cache_wrapped_chunkHeader">Indicates whether the wrapped chunk of every incoming GSOC message should be cached locally so that it can be resolved through the bytes endpoint (useful when the single owner chunk wraps a root chunk larger than 4KB).</param>
+        /// <param name="swarm_soc_fieldsQuery">Same as the swarm-soc-fields header, for clients that cannot set request headers (e.g. browser WebSocket). Takes precedence over the header when both are given.</param>
+        /// <param name="swarm_cache_wrapped_chunkQuery">Same as the swarm-cache-wrapped-chunk header, for clients that cannot set request headers (e.g. browser WebSocket). Takes precedence over the header when both are given.</param>
+        /// <returns>Establishes a WebSocket subscription for incoming messages on the Single Owner Chunk address. Each message is the binary serialization of the Single Owner Chunk fields requested through the swarm-soc-fields header or query parameter (defaults to the wrapped chunk payload). Pending messages are buffered per subscription up to a fixed limit; a client that does not keep up with the incoming rate misses the oldest of them, as they are discarded in favor of the newest ones.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task GsocSubscribeAsync(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task GsocSubscribeAsync(string address, string? swarm_soc_fieldsHeader = null, bool? swarm_cache_wrapped_chunkHeader = null, string? swarm_soc_fieldsQuery = null, bool? swarm_cache_wrapped_chunkQuery = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -3901,6 +4063,12 @@ namespace Etherna.SwarmSdk.Clients.Bee
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
+
+                    if (swarm_soc_fieldsHeader != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-soc-fields", ConvertToString(swarm_soc_fieldsHeader, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_cache_wrapped_chunkHeader != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-cache-wrapped-chunk", ConvertToString(swarm_cache_wrapped_chunkHeader, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Method = new System.Net.Http.HttpMethod("GET");
 
                     var urlBuilder_ = new System.Text.StringBuilder();
@@ -3908,6 +4076,16 @@ namespace Etherna.SwarmSdk.Clients.Bee
                     // Operation Path: "gsoc/subscribe/{address}"
                     urlBuilder_.Append("gsoc/subscribe/");
                     urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(address, System.Globalization.CultureInfo.InvariantCulture)));
+                    urlBuilder_.Append('?');
+                    if (swarm_soc_fieldsQuery != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("swarm-soc-fields")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(swarm_soc_fieldsQuery, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    if (swarm_cache_wrapped_chunkQuery != null)
+                    {
+                        urlBuilder_.Append(System.Uri.EscapeDataString("swarm-cache-wrapped-chunk")).Append('=').Append(System.Uri.EscapeDataString(ConvertToString(swarm_cache_wrapped_chunkQuery, System.Globalization.CultureInfo.InvariantCulture))).Append('&');
+                    }
+                    urlBuilder_.Length--;
 
                     PrepareRequest(client_, request_, urlBuilder_);
 
@@ -3935,6 +4113,16 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200)
                         {
                             return;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Bad request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -3985,11 +4173,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_tag">Associate upload with an existing Tag UID</param>
         /// <param name="swarm_pin">Indicates whether the uploaded data should also be locally pinned on this node</param>
         /// <param name="swarm_deferred_upload">Indicates whether the uploaded data should be sent to the network immediately or deferred. Default: deferred (true)</param>
-        /// <param name="swarm_act">Determines if the uploaded data should be treated as ACT content</param>
-        /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <returns>Created</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ReferenceResponse> SocPostAsync(string owner, string id, string sig, System.IO.Stream body, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, bool? swarm_act = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ReferenceResponse> SocPostAsync(string owner, string id, string sig, System.IO.Stream body, string? swarm_postage_batch_id = null, string? swarm_postage_stamp = null, ulong? swarm_tag = null, bool? swarm_pin = null, bool? swarm_deferred_upload = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (owner == null)
                 throw new System.ArgumentNullException("owner");
@@ -4024,12 +4210,6 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
                     if (swarm_deferred_upload != null)
                         request_.Headers.TryAddWithoutValidation("swarm-deferred-upload", ConvertToString(swarm_deferred_upload, System.Globalization.CultureInfo.InvariantCulture));
-
-                    if (swarm_act != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act", ConvertToString(swarm_act, System.Globalization.CultureInfo.InvariantCulture));
-
-                    if (swarm_act_history_address != null)
-                        request_.Headers.TryAddWithoutValidation("swarm-act-history-address", ConvertToString(swarm_act_history_address, System.Globalization.CultureInfo.InvariantCulture));
                     var content_ = new System.Net.Http.StreamContent(body);
                     content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/octet-stream");
                     request_.Content = content_;
@@ -4293,9 +4473,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_postage_batch_id">ID of Postage Batch that is used to upload data with</param>
         /// <param name="swarm_act">Determines if the uploaded data should be treated as ACT content</param>
         /// <param name="swarm_act_history_address">ACT history reference address</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Created</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<ReferenceResponse> FeedsPostAsync(string owner, string topic, string? type = null, bool? swarm_pin = null, string? swarm_postage_batch_id = null, bool? swarm_act = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<ReferenceResponse> FeedsPostAsync(string owner, string topic, string? type = null, bool? swarm_pin = null, string? swarm_postage_batch_id = null, bool? swarm_act = null, string? swarm_act_history_address = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (owner == null)
                 throw new System.ArgumentNullException("owner");
@@ -4321,6 +4502,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
                     if (swarm_act_history_address != null)
                         request_.Headers.TryAddWithoutValidation("swarm-act-history-address", ConvertToString(swarm_act_history_address, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
                     request_.Method = new System.Net.Http.HttpMethod("POST");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
@@ -4586,9 +4770,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Check content availability
         /// </summary>
         /// <param name="address">Root hash of content (can be of any type: collection, file, chunk)</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Returns if the content is retrievable</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<IsRetrievableResponse> StewardshipGetAsync(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<IsRetrievableResponse> StewardshipGetAsync(string address, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -4599,6 +4784,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
             {
                 using (var request_ = new System.Net.Http.HttpRequestMessage())
                 {
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Method = new System.Net.Http.HttpMethod("GET");
                     request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
 
@@ -4686,9 +4874,10 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// </summary>
         /// <param name="address">Re-uploads content for specified root hash (can be of any type: collection, file, chunk, etc.)</param>
         /// <param name="swarm_postage_batch_id">Postage batch to use for re-upload. The chunks are re-stamped with this batch.</param>
+        /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task StewardshipPutAsync(string address, string swarm_postage_batch_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task StewardshipPutAsync(string address, string swarm_postage_batch_id, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -4703,6 +4892,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
                     if (swarm_postage_batch_id == null)
                         throw new System.ArgumentNullException("swarm_postage_batch_id");
                     request_.Headers.TryAddWithoutValidation("swarm-postage-batch-id", ConvertToString(swarm_postage_batch_id, System.Globalization.CultureInfo.InvariantCulture));
+
+                    if (swarm_redundancy_level != null)
+                        request_.Headers.TryAddWithoutValidation("swarm-redundancy-level", ConvertToString(swarm_redundancy_level, System.Globalization.CultureInfo.InvariantCulture));
                     request_.Content = new System.Net.Http.StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
                     request_.Method = new System.Net.Http.HttpMethod("PUT");
 
@@ -8394,6 +8586,122 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
+        /// Update the label of an existing postage batch
+        /// </summary>
+        /// <param name="batch_id">Swarm address of the stamp</param>
+        /// <returns>Label updated successfully</returns>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<Response> StampsPatchAsync(Body body, string batch_id, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (batch_id == null)
+                throw new System.ArgumentNullException("batch_id");
+
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = SerializeBody(body);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("PATCH");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "stamps/{batch_id}"
+                    urlBuilder_.Append("stamps/");
+                    urlBuilder_.Append(System.Uri.EscapeDataString(ConvertToString(batch_id, System.Globalization.CultureInfo.InvariantCulture)));
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<Response>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Bad request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 404)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Internal Server Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("Default response", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
         /// Get extended bucket data of a batch
         /// </summary>
         /// <param name="batch_id">Swarm address of the stamp</param>
@@ -9257,7 +9565,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// </summary>
         /// <returns>Redistribution status info</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<RedistributionStatusResponse> RedistributionstateAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<RedistributionStatusResponse> RedistributionstateGetAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -9299,6 +9607,110 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200)
                         {
                             var objectResponse_ = await ReadObjectResponseAsync<RedistributionStatusResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            return objectResponse_.Object;
+                        }
+                        else
+                        if (status_ == 400)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Bad request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 500)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<ProblemDetails>("Internal Server Error", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        {
+                            var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
+                            throw new SwarmSdkApiException("Default response", status_, responseData_, headers_, null);
+                        }
+                    }
+                    finally
+                    {
+                        if (disposeResponse_)
+                            response_.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                if (disposeClient_)
+                    client_.Dispose();
+            }
+        }
+
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <summary>
+        /// Enable or disable participation in new redistribution rounds
+        /// </summary>
+        /// <remarks>
+        /// Controls whether the node will commit in a new redistribution round. Sampling still runs while disabled so that a later re-enable can commit in the following commit phase. Disabling does not abort an in-flight commit and does not skip reveal or claim for a round that already committed. Re-enabling during a commit phase that was already skipped does not retry that round. After a node restart participation is enabled again.
+        /// </remarks>
+        /// <returns>Participation flag updated</returns>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
+        public virtual async System.Threading.Tasks.Task<RedistributionEnableResponse> RedistributionstatePatchAsync(RedistributionEnableRequest body, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        {
+            if (body == null)
+                throw new System.ArgumentNullException("body");
+
+            var client_ = _httpClient;
+            var disposeClient_ = false;
+            try
+            {
+                using (var request_ = new System.Net.Http.HttpRequestMessage())
+                {
+                    var json_ = SerializeBody(body);
+                    var content_ = new System.Net.Http.ByteArrayContent(json_);
+                    content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+                    request_.Content = content_;
+                    request_.Method = new System.Net.Http.HttpMethod("PATCH");
+                    request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("application/json"));
+
+                    var urlBuilder_ = new System.Text.StringBuilder();
+                    if (!string.IsNullOrEmpty(_baseUrl)) urlBuilder_.Append(_baseUrl);
+                    // Operation Path: "redistributionstate"
+                    urlBuilder_.Append("redistributionstate");
+
+                    PrepareRequest(client_, request_, urlBuilder_);
+
+                    var url_ = urlBuilder_.ToString();
+                    request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+                    PrepareRequest(client_, request_, url_);
+
+                    var response_ = await client_.SendAsync(request_, System.Net.Http.HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    var disposeResponse_ = true;
+                    try
+                    {
+                        var headers_ = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IEnumerable<string>>();
+                        foreach (var item_ in response_.Headers)
+                            headers_[item_.Key] = item_.Value;
+                        if (response_.Content != null && response_.Content.Headers != null)
+                        {
+                            foreach (var item_ in response_.Content.Headers)
+                                headers_[item_.Key] = item_.Value;
+                        }
+
+                        ProcessResponse(client_, response_);
+
+                        var status_ = (int)response_.StatusCode;
+                        if (status_ == 200)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<RedistributionEnableResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
@@ -9804,12 +10216,12 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         else
                         if (status_ == 400)
                         {
-                            var objectResponse_ = await ReadObjectResponseAsync<ProblemDetails>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            var objectResponse_ = await ReadObjectResponseAsync<StakeDepositErrorResponse>(response_, headers_, cancellationToken).ConfigureAwait(false);
                             if (objectResponse_.Object == null)
                             {
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
-                            throw new SwarmSdkApiException<ProblemDetails>("Bad request", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                            throw new SwarmSdkApiException<StakeDepositErrorResponse>("Deposit amount is below the required minimum.", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         if (status_ == 500)
@@ -9846,7 +10258,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// Get the staked amount.
         /// </summary>
         /// <remarks>
-        /// This endpoint fetches the total staked amount from the blockchain.
+        /// This endpoint fetches the total staked amount and the minimum additional deposit from the blockchain. The first deposit is at least 10 BZZ times 2^height. Subsequent deposits are at least 1 PLUR, or more if the price oracle has increased since the last deposit.
         /// </remarks>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
@@ -12135,6 +12547,24 @@ namespace Etherna.SwarmSdk.Clients.Bee
         [System.Text.Json.Serialization.JsonPropertyName("isHealthy")]
         public bool IsHealthy { get; set; } = default!;
 
+        /// <summary>
+        /// Whether the node will commit in new redistribution rounds. Sampling still runs while disabled. A disabled node still finishes a round that already has an on-chain commit. Re-enabling during a commit phase that was already skipped does not retry that round.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = default!;
+
+        /// <summary>
+        /// Whether the node has already committed in the current round. Operators can shut down without freeze risk when this is false.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("hasCommittedThisRound")]
+        public bool HasCommittedThisRound { get; set; } = default!;
+
+        /// <summary>
+        /// Whether the node has revealed in the current round. After a commit, the node must reveal before it is safe to shut down.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("hasRevealedThisRound")]
+        public bool HasRevealedThisRound { get; set; } = default!;
+
         [System.Text.Json.Serialization.JsonPropertyName("phase")]
         public string Phase { get; set; } = default!;
 
@@ -12164,6 +12594,45 @@ namespace Etherna.SwarmSdk.Clients.Bee
 
         [System.Text.Json.Serialization.JsonPropertyName("fees")]
         public string Fees { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class RedistributionEnableRequest
+    {
+
+        /// <summary>
+        /// Whether the node should commit in new redistribution rounds. Sampling still runs while disabled.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class RedistributionEnableResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("enabled")]
+        public bool Enabled { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12277,11 +12746,41 @@ namespace Etherna.SwarmSdk.Clients.Bee
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class StakeDepositErrorResponse
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("code")]
+        public int Code { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string Message { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("minimumDeposit")]
+        public string MinimumDeposit { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     internal partial class GetStakeResponse
     {
 
         [System.Text.Json.Serialization.JsonPropertyName("stakedAmount")]
         public string StakedAmount { get; set; } = default!;
+
+        /// <summary>
+        /// Absent (null) when the stake is known but the price oracle cannot be read, so the commitment gap is unknown.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("minimumDeposit")]
+        public string? MinimumDeposit { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 
@@ -12518,6 +13017,28 @@ namespace Etherna.SwarmSdk.Clients.Bee
         _2 = 2,
 
         _3 = 3,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class Body
+    {
+
+        /// <summary>
+        /// New label for the postage batch
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("label")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Label { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
 
     }
 
