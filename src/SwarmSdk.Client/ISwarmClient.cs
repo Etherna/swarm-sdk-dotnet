@@ -98,9 +98,11 @@ namespace Etherna.SwarmSdk
 
         /// <summary>Pin the root hash with the given reference.</summary>
         /// <param name="reference">Swarm content reference.</param>
+        /// <param name="redundancyLevel">The redundancy level of the content, used to traverse redundant data.</param>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<bool> CreatePinAsync(
             SwarmReference reference,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Create a new tag.</summary>
@@ -255,6 +257,11 @@ namespace Etherna.SwarmSdk
         /// <param name="actTimestamp">ACT history Unix timestamp.</param>
         /// <param name="actPublisher">ACT content publisher's public key.</param>
         /// <param name="actHistoryAddress">ACT history reference address.</param>
+        /// <param name="cache">Determines if the download data should be cached on the node. By default the download will be cached.</param>
+        /// <param name="redundancyLevel">The redundancy level of the content, used to determine the retrieve strategy on redundant data.</param>
+        /// <param name="redundancyStrategy">Specify the retrieve strategy on redundant data.</param>
+        /// <param name="redundancyFallbackMode">Specify if the retrieve strategies (chunk prefetching on redundant data) are used in a fallback cascade. The default is true.</param>
+        /// <param name="chunkRetrievalTimeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
         /// <returns>Content headers</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<HttpContentHeaders?> GetBytesHeadersAsync(
@@ -262,6 +269,11 @@ namespace Etherna.SwarmSdk
             long? actTimestamp = null,
             string? actPublisher = null,
             string? actHistoryAddress = null,
+            bool? cache = null,
+            RedundancyLevel? redundancyLevel = null,
+            RedundancyStrategy? redundancyStrategy = null,
+            bool? redundancyFallbackMode = null,
+            string? chunkRetrievalTimeout = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Get a list of blocklisted peers.</summary>
@@ -564,9 +576,13 @@ namespace Etherna.SwarmSdk
 
         /// <summary>Get grantee list.</summary>
         /// <param name="reference">Grantee list reference.</param>
+        /// <param name="redundancyLevel">The redundancy level of the grantee list, used to determine the retrieve strategy on redundant data.</param>
         /// <returns>Ok</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<ICollection<string>> GranteeGetAsync(string reference, CancellationToken cancellationToken = default);
+        Task<ICollection<string>> GranteeGetAsync(
+            string reference,
+            RedundancyLevel? redundancyLevel = null,
+            CancellationToken cancellationToken = default);
 
         /// <summary>Update grantee list.</summary>
         /// <remarks>Add or remove grantees from an existing grantee list.</remarks>
@@ -578,9 +594,20 @@ namespace Etherna.SwarmSdk
         /// <param name="tagId">Associate upload with an existing Tag UID.</param>
         /// <param name="pin">Represents if the uploaded data should be also locally pinned on the node.</param>
         /// <param name="deferredUpload">Determines if the uploaded data should be sent to the network immediately or in a deferred fashion. By default the upload will be deferred.</param>
+        /// <param name="redundancyLevel">Add redundancy to the grantee list being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy.</param>
         /// <returns>Ok</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<GranteeResponse> GranteePatchAsync(string reference, string actHistoryAddress, PostageBatchId batchId, string[] addList, string[] revokeList, TagId? tagId = null, bool? pin = null, bool? deferredUpload = null, CancellationToken cancellationToken = default);
+        Task<GranteeResponse> GranteePatchAsync(
+            string reference,
+            string actHistoryAddress,
+            PostageBatchId batchId,
+            string[] addList,
+            string[] revokeList,
+            TagId? tagId = null,
+            bool? pin = null,
+            bool? deferredUpload = null,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
+            CancellationToken cancellationToken = default);
 
         /// <summary>Create grantee list.</summary>
         /// <param name="batchId">ID of Postage Batch that is used to upload data with.</param>
@@ -589,9 +616,18 @@ namespace Etherna.SwarmSdk
         /// <param name="pin">Represents if the uploaded data should be also locally pinned on the node.</param>
         /// <param name="deferredUpload">Determines if the uploaded data should be sent to the network immediately or in a deferred fashion. By default the upload will be deferred.</param>
         /// <param name="actHistoryAddress">ACT history reference address.</param>
+        /// <param name="redundancyLevel">Add redundancy to the grantee list being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy.</param>
         /// <returns>Ok</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<GranteeResponse> GranteePostAsync(PostageBatchId batchId, string[] grantees, TagId? tagId = null, bool? pin = null, bool? deferredUpload = null, string? actHistoryAddress = null, CancellationToken cancellationToken = default);
+        Task<GranteeResponse> GranteePostAsync(
+            PostageBatchId batchId,
+            string[] grantees,
+            TagId? tagId = null,
+            bool? pin = null,
+            bool? deferredUpload = null,
+            string? actHistoryAddress = null,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
+            CancellationToken cancellationToken = default);
 
         /// <summary>Check if chunk at address exists locally.</summary>
         /// <param name="hash">Swarm hash of chunk.</param>
@@ -609,10 +645,12 @@ namespace Etherna.SwarmSdk
 
         /// <summary>Check if content is retrievable.</summary>
         /// <param name="reference">Swarm content reference.</param>
+        /// <param name="redundancyLevel">The redundancy level of the content, used to traverse redundant data.</param>
         /// <returns>Returns if the content is retrievable</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<bool> IsContentRetrievableAsync(
             SwarmReference reference,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Get all available loggers.</summary>
@@ -666,10 +704,12 @@ namespace Etherna.SwarmSdk
         /// <summary>Reupload a root hash to the network.</summary>
         /// <param name="reference">Swarm content reference.</param>
         /// <param name="batchId">ID of Postage Batch that is used to upload data with.</param>
+        /// <param name="redundancyLevel">The redundancy level of the content, used to traverse redundant data.</param>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task ReuploadContentAsync(
             SwarmReference reference,
             PostageBatchId batchId,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Send to recipient or target with Postal Service for Swarm.</summary>
@@ -683,6 +723,17 @@ namespace Etherna.SwarmSdk
             string targets,
             PostageBatchId batchId,
             string? recipient = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Enable or disable participation in new redistribution rounds.</summary>
+        /// <remarks>
+        /// Sampling still runs while disabled, so a later re-enable can commit in the following commit phase. Disabling does not abort an in-flight commit and does not skip reveal or claim for a round that already committed. Re-enabling during a commit phase that was already skipped does not retry that round. After a node restart participation is enabled again.
+        /// </remarks>
+        /// <param name="enabled">Whether the node should commit in new redistribution rounds.</param>
+        /// <returns>The updated participation flag</returns>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
+        Task<bool> SetRedistributionParticipationAsync(
+            bool enabled,
             CancellationToken cancellationToken = default);
 
         /// <summary>Set P2P welcome message.</summary>
@@ -704,12 +755,13 @@ namespace Etherna.SwarmSdk
             ulong? gasLimit = null,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Get the staked amount.</summary>
+        /// <summary>Get the staked amount and the minimum additional deposit.</summary>
         /// <remarks>
-        /// This endpoint fetches the staked amount from the blockchain.
+        /// This endpoint fetches the total staked amount and the minimum additional deposit from the blockchain. The first deposit is at least 10 BZZ times 2^height. Subsequent deposits are at least 1 PLUR, or more if the price oracle has increased since the last deposit.
         /// </remarks>
+        /// <returns>Stake info</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task StakeGetAsync(CancellationToken cancellationToken = default);
+        Task<StakeInfo> StakeGetAsync(CancellationToken cancellationToken = default);
 
         /// <summary>Deposit some amount for staking.</summary>
         /// <remarks>
@@ -753,9 +805,13 @@ namespace Etherna.SwarmSdk
 
         /// <summary>Subscribe to GSOC payloads.</summary>
         /// <param name="reference">Single Owner Chunk address (which may have multiple payloads).</param>
+        /// <param name="socFields">Single Owner Chunk fields to be serialized and channeled on every incoming GSOC message, in the given order. When omitted it defaults to the payload. To have random access on the response bytes, put the payload last since it has variable length.</param>
+        /// <param name="cacheWrappedChunk">Indicates whether the wrapped chunk of every incoming GSOC message should be cached locally so that it can be resolved through the bytes endpoint (useful when the single owner chunk wraps a root chunk larger than 4KB).</param>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task SubscribeToGsocAsync(
             string reference,
+            IEnumerable<SwarmSocField>? socFields = null,
+            bool? cacheWrappedChunk = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Subscribe for messages on the given topic.</summary>
@@ -824,6 +880,8 @@ namespace Etherna.SwarmSdk
         /// <param name="redundancyLevel">The redundancy level of the content, used to determine the retrieve strategy on redundant data.</param>
         /// <param name="redundancyStrategy">Specify the retrieve strategy on redundant data.</param>
         /// <param name="redundancyStrategyFallback">Specify if the retrieve strategies are used in a fallback cascade.</param>
+        /// <param name="cache">Determines if the download data should be cached on the node. By default the download will be cached.</param>
+        /// <param name="chunkRetrievalTimeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
         /// <returns>Headers with values</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<HttpContentHeaders?> TryGetFileHeadersAsync(
@@ -834,6 +892,8 @@ namespace Etherna.SwarmSdk
             RedundancyLevel? redundancyLevel = null,
             RedundancyStrategy? redundancyStrategy = null,
             bool? redundancyStrategyFallback = null,
+            bool? cache = null,
+            string? chunkRetrievalTimeout = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Try to get the byte length of a file.</summary>
@@ -844,6 +904,8 @@ namespace Etherna.SwarmSdk
         /// <param name="redundancyLevel">The redundancy level of the content, used to determine the retrieve strategy on redundant data.</param>
         /// <param name="redundancyStrategy">Specify the retrieve strategy on redundant data.</param>
         /// <param name="redundancyStrategyFallback">Specify if the retrieve strategies are used in a fallback cascade.</param>
+        /// <param name="cache">Determines if the download data should be cached on the node. By default the download will be cached.</param>
+        /// <param name="chunkRetrievalTimeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
         /// <returns>Byte size of file</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<long?> TryGetFileSizeAsync(
@@ -854,6 +916,17 @@ namespace Etherna.SwarmSdk
             RedundancyLevel? redundancyLevel = null,
             RedundancyStrategy? redundancyStrategy = null,
             bool? redundancyStrategyFallback = null,
+            bool? cache = null,
+            string? chunkRetrievalTimeout = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Update the label of an existing postage batch.</summary>
+        /// <param name="batchId">Postage batch ID.</param>
+        /// <param name="label">New label for the postage batch.</param>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
+        Task UpdatePostageBatchLabelAsync(
+            PostageBatchId batchId,
+            string label,
             CancellationToken cancellationToken = default);
 
         /// <summary>Update total count and swarm hash for a tag of an input stream of unknown size, by ID.</summary>
@@ -899,8 +972,6 @@ namespace Etherna.SwarmSdk
         /// <param name="batchId">ID of Postage Batch that is used to upload data with.</param>
         /// <param name="tagId">Associate upload with an existing Tag UID.</param>
         /// <param name="presignedPostageStamp">Pre-signed postage stamp for the corresponding chunk. Required when no postage batch ID is supplied.</param>
-        /// <param name="act">Determines if the uploaded data should be treated as ACT (Access Control Trie) content.</param>
-        /// <param name="actHistoryAddress">ACT history reference address.</param>
         /// <returns>Content reference</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<SwarmHash> UploadChunkAsync(
@@ -908,8 +979,6 @@ namespace Etherna.SwarmSdk
             PostageBatchId? batchId,
             TagId? tagId = null,
             PostageStamp? presignedPostageStamp = null,
-            bool? act = null,
-            string? actHistoryAddress = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Upload a chunk.</summary>
@@ -917,8 +986,6 @@ namespace Etherna.SwarmSdk
         /// <param name="batchId">ID of Postage Batch that is used to upload data with.</param>
         /// <param name="tagId">Associate upload with an existing Tag UID.</param>
         /// <param name="presignedPostageStamp">Pre-signed postage stamp for the corresponding chunk. Required when no postage batch ID is supplied.</param>
-        /// <param name="act">Determines if the uploaded data should be treated as ACT (Access Control Trie) content.</param>
-        /// <param name="actHistoryAddress">ACT history reference address.</param>
         /// <returns>Content reference</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<SwarmHash> UploadChunkAsync(
@@ -926,8 +993,6 @@ namespace Etherna.SwarmSdk
             PostageBatchId? batchId,
             TagId? tagId = null,
             PostageStamp? presignedPostageStamp = null,
-            bool? act = null,
-            string? actHistoryAddress = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>Upload a directory.</summary>
@@ -996,6 +1061,7 @@ namespace Etherna.SwarmSdk
         /// <param name="pin">Represents if the uploaded data should be also locally pinned on the node.</param>
         /// <param name="act">Determines if the uploaded data should be treated as ACT (Access Control Trie) content.</param>
         /// <param name="actHistoryAddress">ACT history reference address.</param>
+        /// <param name="redundancyLevel">Add redundancy to the feed manifest being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy.</param>
         /// <returns>Reference hash</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<SwarmHash> UploadFeedManifestAsync(
@@ -1005,6 +1071,7 @@ namespace Etherna.SwarmSdk
             bool pin = false,
             bool? act = null,
             string? actHistoryAddress = null,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
             CancellationToken cancellationToken = default);
 
         /// <summary>Upload a file.</summary>
@@ -1048,8 +1115,6 @@ namespace Etherna.SwarmSdk
         /// <param name="presignedPostageStamp">Pre-signed postage stamp for the corresponding chunk. Required when no postage batch ID is supplied.</param>
         /// <param name="tagId">Associate upload with an existing Tag UID.</param>
         /// <param name="deferredUpload">Determines if the uploaded data should be sent to the network immediately or in a deferred fashion. By default the upload will be deferred.</param>
-        /// <param name="act">Determines if the uploaded data should be treated as ACT (Access Control Trie) content.</param>
-        /// <param name="actHistoryAddress">ACT history reference address.</param>
         /// <param name="pin">Represents if the uploaded data should be also locally pinned on the node.</param>
         /// <returns>Reference hash</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
@@ -1059,8 +1124,6 @@ namespace Etherna.SwarmSdk
             PostageStamp? presignedPostageStamp = null,
             TagId? tagId = null,
             bool deferredUpload = false,
-            bool? act = null,
-            string? actHistoryAddress = null,
             bool? pin = null,
             CancellationToken cancellationToken = default);
 

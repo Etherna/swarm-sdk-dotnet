@@ -339,6 +339,7 @@ namespace Etherna.SwarmSdk
 
         public async Task<bool> CreatePinAsync(
             SwarmReference reference,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default)
         {
             if (IsDryMode)
@@ -350,7 +351,10 @@ namespace Etherna.SwarmSdk
                 {
                     try
                     {
-                        await beeGeneratedClient.PinsPostAsync(reference.ToString(), cancellationToken).ConfigureAwait(false);
+                        await beeGeneratedClient.PinsPostAsync(
+                            reference: reference.ToString(),
+                            swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel?)redundancyLevel,
+                            cancellationToken: cancellationToken).ConfigureAwait(false);
                         return true;
                     }
                     catch (SwarmSdkApiException e) when (e.StatusCode == 404)
@@ -821,6 +825,11 @@ namespace Etherna.SwarmSdk
             long? actTimestamp = null,
             string? actPublisher = null,
             string? actHistoryAddress = null,
+            bool? cache = null,
+            RedundancyLevel? redundancyLevel = null,
+            RedundancyStrategy? redundancyStrategy = null,
+            bool? redundancyFallbackMode = null,
+            string? chunkRetrievalTimeout = null,
             CancellationToken cancellationToken = default)
         {
             switch (ApiCompatibility)
@@ -828,6 +837,11 @@ namespace Etherna.SwarmSdk
                 case SwarmClients.Bee:
                     return beeGeneratedClient.BytesHeadAsync(
                         address: reference.ToString(),
+                        swarm_cache: cache,
+                        swarm_redundancy_strategy: (Clients.Bee.SwarmRedundancyStrategy?)redundancyStrategy,
+                        swarm_redundancy_fallback_mode: redundancyFallbackMode,
+                        swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel?)redundancyLevel,
+                        swarm_chunk_retrieval_timeout: chunkRetrievalTimeout,
                         swarm_act_timestamp: actTimestamp,
                         swarm_act_publisher: actPublisher,
                         swarm_act_history_address: actHistoryAddress,
@@ -1964,12 +1978,16 @@ namespace Etherna.SwarmSdk
 
         public Task<ICollection<string>> GranteeGetAsync(
             string reference,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default)
         {
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
-                    return beeGeneratedClient.GranteeGetAsync(reference, cancellationToken);
+                    return beeGeneratedClient.GranteeGetAsync(
+                        address: reference,
+                        swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel?)redundancyLevel,
+                        cancellationToken: cancellationToken);
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
                 default:
@@ -1986,6 +2004,7 @@ namespace Etherna.SwarmSdk
             TagId? tagId = null,
             bool? pin = null,
             bool? deferredUpload = null,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
             CancellationToken cancellationToken = default)
         {
             if (IsDryMode)
@@ -2003,6 +2022,7 @@ namespace Etherna.SwarmSdk
                         swarm_tag: tagId?.Value,
                         swarm_pin: pin,
                         swarm_deferred_upload: deferredUpload,
+                        swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel)redundancyLevel,
                         cancellationToken: cancellationToken).ConfigureAwait(false);
                     return new GranteeResponse(response.Ref, response.Historyref);
                 }
@@ -2020,6 +2040,7 @@ namespace Etherna.SwarmSdk
             bool? pin = null,
             bool? deferredUpload = null,
             string? actHistoryAddress = null,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
             CancellationToken cancellationToken = default)
         {
             if (IsDryMode)
@@ -2036,6 +2057,7 @@ namespace Etherna.SwarmSdk
                         swarm_pin: pin,
                         swarm_deferred_upload: deferredUpload,
                         swarm_act_history_address: actHistoryAddress,
+                        swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel)redundancyLevel,
                         cancellationToken: cancellationToken).ConfigureAwait(false);
                     return new GranteeResponse(response.Ref, response.Historyref);
                 }
@@ -2093,14 +2115,17 @@ namespace Etherna.SwarmSdk
 
         public async Task<bool> IsContentRetrievableAsync(
             SwarmReference reference,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default)
         {
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
                 {
-                    return (await beeGeneratedClient.StewardshipGetAsync(reference.ToString(), cancellationToken)
-                            .ConfigureAwait(false))
+                    return (await beeGeneratedClient.StewardshipGetAsync(
+                            address: reference.ToString(),
+                            swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel?)redundancyLevel,
+                            cancellationToken: cancellationToken).ConfigureAwait(false))
                         .IsRetrievable;
                 }
                 case SwarmClients.Beehive:
@@ -2264,11 +2289,14 @@ namespace Etherna.SwarmSdk
             {
                 case SwarmClients.Bee:
                 {
-                    var response = await beeGeneratedClient.RedistributionstateAsync(cancellationToken).ConfigureAwait(false);
+                    var response = await beeGeneratedClient.RedistributionstateGetAsync(cancellationToken).ConfigureAwait(false);
                     return new(
                         isFrozen: response.IsFrozen,
                         isFullySynced: response.IsFullySynced,
                         isHealthy: response.IsHealthy,
+                        enabled: response.Enabled,
+                        hasCommittedThisRound: response.HasCommittedThisRound,
+                        hasRevealedThisRound: response.HasRevealedThisRound,
                         round: response.Round,
                         lastWonRound: response.LastWonRound,
                         lastPlayedRound: response.LastPlayedRound,
@@ -2287,6 +2315,7 @@ namespace Etherna.SwarmSdk
         public Task ReuploadContentAsync(
             SwarmReference reference,
             PostageBatchId batchId,
+            RedundancyLevel? redundancyLevel = null,
             CancellationToken cancellationToken = default)
         {
             if (IsDryMode)
@@ -2298,6 +2327,7 @@ namespace Etherna.SwarmSdk
                     return beeGeneratedClient.StewardshipPutAsync(
                         address: reference.ToString(),
                         swarm_postage_batch_id: batchId.ToString(),
+                        swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel?)redundancyLevel,
                         cancellationToken: cancellationToken);
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
@@ -2320,6 +2350,29 @@ namespace Etherna.SwarmSdk
             {
                 case SwarmClients.Bee:
                     return beeGeneratedClient.PssSendAsync(topic, targets, batchId.ToString(), recipient, cancellationToken);
+                case SwarmClients.Beehive:
+                    throw new NotSupportedException();
+                default:
+                    throw new InvalidOperationException();
+            }
+        }
+
+        public async Task<bool> SetRedistributionParticipationAsync(
+            bool enabled,
+            CancellationToken cancellationToken = default)
+        {
+            if (IsDryMode)
+                return enabled;
+
+            switch (ApiCompatibility)
+            {
+                case SwarmClients.Bee:
+                {
+                    var response = await beeGeneratedClient.RedistributionstatePatchAsync(
+                        new RedistributionEnableRequest { Enabled = enabled },
+                        cancellationToken).ConfigureAwait(false);
+                    return response.Enabled;
+                }
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
                 default:
@@ -2370,13 +2423,17 @@ namespace Etherna.SwarmSdk
             }
         }
 
-        public async Task StakeGetAsync(CancellationToken cancellationToken = default)
+        public async Task<StakeInfo> StakeGetAsync(CancellationToken cancellationToken = default)
         {
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
-                    await beeGeneratedClient.StakeGetAsync(cancellationToken).ConfigureAwait(false);
-                    break;
+                {
+                    var response = await beeGeneratedClient.StakeGetAsync(cancellationToken).ConfigureAwait(false);
+                    return new(
+                        stakedAmount: BzzValue.FromPlurString(response.StakedAmount),
+                        minimumDeposit: response.MinimumDeposit is null ? null : BzzValue.FromPlurString(response.MinimumDeposit));
+                }
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
                 default:
@@ -2521,6 +2578,8 @@ namespace Etherna.SwarmSdk
 
         public Task SubscribeToGsocAsync(
             string reference,
+            IEnumerable<SwarmSocField>? socFields = null,
+            bool? cacheWrappedChunk = null,
             CancellationToken cancellationToken = default)
         {
             if (IsDryMode)
@@ -2529,7 +2588,21 @@ namespace Etherna.SwarmSdk
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
-                    return beeGeneratedClient.GsocSubscribeAsync(reference, cancellationToken);
+                    return beeGeneratedClient.GsocSubscribeAsync(
+                        address: reference,
+                        swarm_soc_fieldsHeader: socFields is null ? null : string.Join(',', socFields.Select(f => f switch
+                        {
+                            SwarmSocField.Address => "address",
+                            SwarmSocField.Identifier => "identifier",
+                            SwarmSocField.Payload => "payload",
+                            SwarmSocField.RecoveredPubKey => "recoveredPubKey",
+                            SwarmSocField.Signature => "signature",
+                            SwarmSocField.Span => "span",
+                            SwarmSocField.WrappedAddress => "wrappedAddress",
+                            _ => throw new ArgumentOutOfRangeException(nameof(socFields), f, null)
+                        })),
+                        swarm_cache_wrapped_chunkHeader: cacheWrappedChunk,
+                        cancellationToken: cancellationToken);
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
                 default:
@@ -2680,6 +2753,8 @@ namespace Etherna.SwarmSdk
             RedundancyLevel? redundancyLevel = null,
             RedundancyStrategy? redundancyStrategy = null, 
             bool? redundancyStrategyFallback = null,
+            bool? cache = null,
+            string? chunkRetrievalTimeout = null,
             CancellationToken cancellationToken = default)
         {
             switch (ApiCompatibility)
@@ -2696,12 +2771,14 @@ namespace Etherna.SwarmSdk
                 
                         await beeGeneratedClient.BzzHeadAsync(
                             address: address.Reference.ToString(),
+                            swarm_cache: cache,
                             swarm_act_timestamp: actTimestamp,
                             swarm_act_publisher: actPublisher,
                             swarm_act_history_address: actHistoryAddress,
                             swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel?)redundancyLevel,
                             swarm_redundancy_strategy: (Clients.Bee.SwarmRedundancyStrategy?)redundancyStrategy,
                             swarm_redundancy_fallback_mode: redundancyStrategyFallback,
+                            swarm_chunk_retrieval_timeout: chunkRetrievalTimeout,
                             cancellationToken: cancellationToken).ConfigureAwait(false);
                 case SwarmClients.Beehive:
                     return await beehiveGeneratedClient.BzzHeadAsync(
@@ -2723,6 +2800,8 @@ namespace Etherna.SwarmSdk
             RedundancyLevel? redundancyLevel = null,
             RedundancyStrategy? redundancyStrategy = null, 
             bool? redundancyStrategyFallback = null,
+            bool? cache = null,
+            string? chunkRetrievalTimeout = null,
             CancellationToken cancellationToken = default)
         {
             var headers = await TryGetFileHeadersAsync(
@@ -2733,8 +2812,33 @@ namespace Etherna.SwarmSdk
                 redundancyLevel: redundancyLevel,
                 redundancyStrategy: redundancyStrategy,
                 redundancyStrategyFallback: redundancyStrategyFallback,
+                cache: cache,
+                chunkRetrievalTimeout: chunkRetrievalTimeout,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             return headers?.ContentLength;
+        }
+
+        public async Task UpdatePostageBatchLabelAsync(
+            PostageBatchId batchId,
+            string label,
+            CancellationToken cancellationToken = default)
+        {
+            if (IsDryMode)
+                return;
+
+            switch (ApiCompatibility)
+            {
+                case SwarmClients.Bee:
+                    await beeGeneratedClient.StampsPatchAsync(
+                        new Body { Label = label },
+                        batchId.ToString(),
+                        cancellationToken).ConfigureAwait(false);
+                    break;
+                case SwarmClients.Beehive:
+                    throw new NotSupportedException();
+                default:
+                    throw new InvalidOperationException();
+            }
         }
 
         public Task UpdateTagAsync(
@@ -2826,8 +2930,6 @@ namespace Etherna.SwarmSdk
             PostageBatchId? batchId,
             TagId? tagId = null,
             PostageStamp? presignedPostageStamp = null,
-            bool? act = null,
-            string? actHistoryAddress = null,
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(chunk);
@@ -2839,8 +2941,6 @@ namespace Etherna.SwarmSdk
                 batchId,
                 tagId,
                 presignedPostageStamp,
-                act,
-                actHistoryAddress,
                 cancellationToken);
 #pragma warning restore CA2025
         }
@@ -2850,8 +2950,6 @@ namespace Etherna.SwarmSdk
             PostageBatchId? batchId,
             TagId? tagId = null,
             PostageStamp? presignedPostageStamp = null,
-            bool? act = null,
-            string? actHistoryAddress = null,
             CancellationToken cancellationToken = default)
         {
             if (IsDryMode)
@@ -2864,8 +2962,6 @@ namespace Etherna.SwarmSdk
                         swarm_tag: tagId?.Value,
                         swarm_postage_batch_id: batchId?.ToString(),
                         swarm_postage_stamp: presignedPostageStamp?.ToString(),
-                        swarm_act: act,
-                        swarm_act_history_address: actHistoryAddress,
                         body: chunkData,
                         cancellationToken: cancellationToken).ConfigureAwait(false)).Reference;
                 case SwarmClients.Beehive:
@@ -3005,6 +3101,7 @@ namespace Etherna.SwarmSdk
             bool pin = false,
             bool? act = null,
             string? actHistoryAddress = null,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(feed);
@@ -3023,6 +3120,7 @@ namespace Etherna.SwarmSdk
                         swarm_postage_batch_id: batchId.ToString(),
                         swarm_act: act,
                         swarm_act_history_address: actHistoryAddress,
+                        swarm_redundancy_level: (Clients.Bee.SwarmRedundancyLevel)redundancyLevel,
                         cancellationToken: cancellationToken).ConfigureAwait(false)).Reference;
                 case SwarmClients.Beehive:
                     return (await beehiveGeneratedClient.FeedsPostAsync(
@@ -3118,8 +3216,6 @@ namespace Etherna.SwarmSdk
             PostageStamp? presignedPostageStamp = null,
             TagId? tagId = null,
             bool deferredUpload = false,
-            bool? act = null,
-            string? actHistoryAddress = null,
             bool? pin = null,
             CancellationToken cancellationToken = default)
         {
@@ -3145,8 +3241,6 @@ namespace Etherna.SwarmSdk
                         swarm_tag: tagId?.Value,
                         swarm_pin: pin,
                         swarm_deferred_upload: deferredUpload,
-                        swarm_act: act,
-                        swarm_act_history_address: actHistoryAddress,
                         cancellationToken: cancellationToken).ConfigureAwait(false)).Reference;
                 case SwarmClients.Beehive:
                     return (await beehiveGeneratedClient.SocPostAsync(
