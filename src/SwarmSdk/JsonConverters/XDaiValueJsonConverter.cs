@@ -32,7 +32,7 @@ namespace Etherna.SwarmSdk.JsonConverters
                 JsonTokenType.Number when valueFormat == NumericFormat.AsFloat =>
                     XDaiValue.FromDouble(reader.GetDouble()),
                 JsonTokenType.Number when valueFormat == NumericFormat.AsInteger =>
-                    XDaiValue.FromWeiLong(reader.GetInt64()),
+                    XDaiValue.FromWeiDecimal(reader.GetInt64()),
                 JsonTokenType.String => XDaiValue.FromWeiString(reader.GetString()!),
                 _ => throw new JsonException()
             };
@@ -46,7 +46,7 @@ namespace Etherna.SwarmSdk.JsonConverters
                     writer.WriteNumberValue(value.ToDouble());
                     break;
                 case NumericFormat.AsInteger:
-                    writer.WriteNumberValue(value.ToWeiLong());
+                    writer.WriteNumberValue((long)value.ToWeiDecimal());
                     break;
                 case NumericFormat.AsString:
                     writer.WriteStringValue(value.ToWeiString());

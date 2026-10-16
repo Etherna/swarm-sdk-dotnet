@@ -43,8 +43,8 @@ namespace Etherna.SwarmSdk.TypeConverters
             {
                 decimal bzz => XDaiValue.FromDecimal(bzz),
                 double bzz => XDaiValue.FromDouble(bzz),
-                int plur => XDaiValue.FromWeiLong(plur),
-                long plur => XDaiValue.FromWeiLong(plur),
+                int plur => XDaiValue.FromWeiDecimal(plur),
+                long plur => XDaiValue.FromWeiDecimal(plur),
                 string plur => XDaiValue.FromWeiString(plur),
                 _ => base.ConvertFrom(context, culture, value)
             };
@@ -58,9 +58,9 @@ namespace Etherna.SwarmSdk.TypeConverters
                 if (destinationType == typeof(double))
                     return (double)xDaiValue.ToDecimal();
                 if (destinationType == typeof(int))
-                    return (int)xDaiValue.ToWeiLong();
+                    return (int)xDaiValue.ToWeiDecimal();
                 if (destinationType == typeof(long))
-                    return xDaiValue.ToWeiLong();
+                    return (long)xDaiValue.ToWeiDecimal();
                 if (destinationType == typeof(string))
                     return xDaiValue.ToWeiString();
             }

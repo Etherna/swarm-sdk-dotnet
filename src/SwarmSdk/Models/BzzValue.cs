@@ -39,9 +39,9 @@ namespace Etherna.SwarmSdk.Models
         public static BzzValue FromDouble(double value) => new((decimal)value);
         public static BzzValue FromInt32(int value) => new(value);
         public static BzzValue FromInt64(long value) => new(value);
-        public static BzzValue FromPlurLong(long plurValue) => decimal.Divide(plurValue, PlursInBzz);
+        public static BzzValue FromPlurDecimal(decimal plurValue) => decimal.Divide(plurValue, PlursInBzz);
         public static BzzValue FromPlurString(string plurValue) =>
-            FromPlurLong(long.Parse(plurValue, CultureInfo.InvariantCulture));
+            FromPlurDecimal(decimal.Parse(plurValue, NumberStyles.Integer, CultureInfo.InvariantCulture));
         public static BzzValue FromString(string value) => new(decimal.Parse(value, CultureInfo.InvariantCulture));
 
         // Methods.
@@ -53,8 +53,8 @@ namespace Etherna.SwarmSdk.Models
         public override int GetHashCode() => value.GetHashCode();
         public decimal ToDecimal() => value;
         public double ToDouble() => (double)value;
-        public long ToPlurLong() => (long)decimal.Multiply(value, PlursInBzz);
-        public string ToPlurString() => decimal.Multiply(value, PlursInBzz).ToString("F0", CultureInfo.InvariantCulture);
+        public decimal ToPlurDecimal() => decimal.Truncate(decimal.Multiply(value, PlursInBzz));
+        public string ToPlurString() => ToPlurDecimal().ToString("F0", CultureInfo.InvariantCulture);
         public override string ToString() => value.ToString(CultureInfo.InvariantCulture);
 
         // Static methods.
