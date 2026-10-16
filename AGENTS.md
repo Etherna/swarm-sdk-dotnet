@@ -135,6 +135,7 @@ private void InternalHelper() { ... }
 
 - `internal sealed` for service implementations where they aren't part of the public API
 - Primary constructors everywhere the constructor is a simple assignment
+- Don't extract a private helper method for logic used in a single place — inline it. Reserve helpers for code shared by two or more call sites (or when extraction materially clarifies an otherwise long, complex method)
 - Value-like models are immutable: expose data through read-only properties
 
 ## Async Patterns

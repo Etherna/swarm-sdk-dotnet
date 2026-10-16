@@ -32,7 +32,11 @@ namespace Etherna.SwarmSdk.JsonConverters
                 JsonTokenType.Number when valueFormat == NumericFormat.AsFloat =>
                     XDaiValue.FromDouble(reader.GetDouble()),
                 JsonTokenType.Number when valueFormat == NumericFormat.AsInteger =>
-                    XDaiValue.FromWeiDecimal(reader.GetInt64()),
+                    reader.GetDecimal() switch
+                    {
+                        var wei when wei == decimal.Truncate(wei) => XDaiValue.FromWeiDecimal(wei),
+                        _ => throw new JsonException("The integer format requires an integral number")
+                    },
                 JsonTokenType.String => XDaiValue.FromWeiString(reader.GetString()!),
                 _ => throw new JsonException()
             };
@@ -46,7 +50,7 @@ namespace Etherna.SwarmSdk.JsonConverters
                     writer.WriteNumberValue(value.ToDouble());
                     break;
                 case NumericFormat.AsInteger:
-                    writer.WriteNumberValue((long)value.ToWeiDecimal());
+                    writer.WriteNumberValue(value.ToWeiDecimal()); //integral with scale 0: no fractional digits, no range cap
                     break;
                 case NumericFormat.AsString:
                     writer.WriteStringValue(value.ToWeiString());
