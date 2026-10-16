@@ -40,9 +40,9 @@ namespace Etherna.SwarmSdk.Models
         public static XDaiValue FromInt32(int value) => new(value);
         public static XDaiValue FromInt64(long value) => new(value);
         public static XDaiValue FromString(string value) => new(decimal.Parse(value, CultureInfo.InvariantCulture));
-        public static XDaiValue FromWeiLong(long weiValue) => decimal.Divide(weiValue, WeisInXDai);
+        public static XDaiValue FromWeiDecimal(decimal weiValue) => decimal.Divide(weiValue, WeisInXDai);
         public static XDaiValue FromWeiString(string weiValue) =>
-            FromWeiLong(long.Parse(weiValue, CultureInfo.InvariantCulture));
+            FromWeiDecimal(decimal.Parse(weiValue, NumberStyles.Integer, CultureInfo.InvariantCulture));
 
         // Methods.
         public int CompareTo(XDaiValue other) => value.CompareTo(other.value);
@@ -54,8 +54,8 @@ namespace Etherna.SwarmSdk.Models
         public decimal ToDecimal() => value;
         public double ToDouble() => (double)value;
         public override string ToString() => value.ToString(CultureInfo.InvariantCulture);
-        public long ToWeiLong()=> (long)decimal.Multiply(value, WeisInXDai);
-        public string ToWeiString() => decimal.Multiply(value, WeisInXDai).ToString("F0", CultureInfo.InvariantCulture);
+        public decimal ToWeiDecimal() => decimal.Truncate(decimal.Multiply(value, WeisInXDai));
+        public string ToWeiString() => ToWeiDecimal().ToString("F0", CultureInfo.InvariantCulture);
 
         // Static methods.
         public static XDaiValue Add(XDaiValue left, XDaiValue right) => left + right;

@@ -32,7 +32,7 @@ namespace Etherna.SwarmSdk.JsonConverters
                 JsonTokenType.Number when valueFormat == NumericFormat.AsFloat =>
                     BzzValue.FromDouble(reader.GetDouble()),
                 JsonTokenType.Number when valueFormat == NumericFormat.AsInteger =>
-                    BzzValue.FromPlurLong(reader.GetInt64()),
+                    BzzValue.FromPlurDecimal(reader.GetInt64()),
                 JsonTokenType.String => BzzValue.FromPlurString(reader.GetString()!),
                 _ => throw new JsonException()
             };
@@ -46,7 +46,7 @@ namespace Etherna.SwarmSdk.JsonConverters
                     writer.WriteNumberValue(value.ToDouble());
                     break;
                 case NumericFormat.AsInteger:
-                    writer.WriteNumberValue(value.ToPlurLong());
+                    writer.WriteNumberValue((long)value.ToPlurDecimal());
                     break;
                 case NumericFormat.AsString:
                     writer.WriteStringValue(value.ToPlurString());
