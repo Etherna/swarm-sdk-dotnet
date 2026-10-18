@@ -103,7 +103,8 @@ namespace Etherna.SwarmSdk.Manifest
                 return;
             
             // Get chunk data.
-            var decodedChunk = (SwarmDecodedDataCac)Chunk.Decode(Reference, new Hasher());
+            if (Chunk.Decode(Reference, new Hasher()) is not SwarmDecodedDataCac decodedChunk)
+                throw new InvalidOperationException("Intermediate chunk is not a manifest node");
             var data = decodedChunk.Data.ToArray();
 
             // Get obfuscation key and de-obfuscate.
