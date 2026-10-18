@@ -1,0 +1,11 @@
+<Project>
+
+  <!-- GitVersion.MsBuild writes its output to a single obj/gitversion.json per project, but the inner builds of the
+       target frameworks run in parallel and rewrite it while another one is still reading it, failing the build at
+       random. Give each target framework its own file. This must be set here, before the package props are imported,
+       because they bake the path into the arguments of the GitVersion tool as soon as they are evaluated. -->
+  <PropertyGroup Condition="'$(TargetFramework)' != ''">
+    <GitVersionOutputFile>obj/gitversion.$(TargetFramework).json</GitVersionOutputFile>
+  </PropertyGroup>
+
+</Project>
