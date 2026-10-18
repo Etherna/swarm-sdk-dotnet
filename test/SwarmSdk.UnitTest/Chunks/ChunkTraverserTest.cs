@@ -46,6 +46,12 @@ namespace Etherna.SwarmSdk.Chunks
             SwarmReference RootReference,
             IEnumerable<SwarmReference> ExpectedFoundReferences,
             IEnumerable<SwarmReference> ExpectedNotFoundReferences);
+
+        public record TraverseTestElement(
+            IChunkStore ChunkStore,
+            SwarmReference RootReference,
+            IEnumerable<SwarmReference> ExpectedFoundReferences,
+            IEnumerable<SwarmReference> ExpectedNotFoundReferences);
         
         // Data.
         public static IEnumerable<object[]> TraverseFromDataChunkTests
@@ -888,7 +894,91 @@ namespace Etherna.SwarmSdk.Chunks
             }
         }
         
+        public static IEnumerable<object[]> TraverseTests
+        {
+            get
+            {
+                var tests = new List<TraverseTestElement>();
+                
+                //manifest root (no redundancy)
+                {
+                    var chunkStoreInitTask = BuildChunkStoreAsync(RedundancyLevel.None);
+                    chunkStoreInitTask.Wait();
+                    var chunkStore = chunkStoreInitTask.Result;
+                    
+                    tests.Add(new TraverseTestElement(
+                        chunkStore,
+                        "46be4f99d106518c74fe02262aa4d738117eee47f9bb6bceea523346762372cc",
+                        [
+                            "46be4f99d106518c74fe02262aa4d738117eee47f9bb6bceea523346762372cc",
+                            "df08922becf846a73648dd793d2b4e8c7d8e14d812ae953b169c3948cc7208db",
+                            "b4dbbcabd06b975c982b1165526ca86d645957bdb4ad185c7762349bc3d05db1",
+                            "72e71b431b78633506acd4198d023ac535f0612dbd9a0aaf6d8b1ba496f4637e",
+                            "ddf10d58bc29ff8aa4596d0d6f1c7ad4dc96b422c1f8879f22fbd5cb62c63fac",
+                            "45a2fb3301637e7cd235a7f4a26ae78da6a115d87d5f8eef840e35ec1d9833bf",
+                            "fd85afac03d0fce2ecd169c0f40d2f4afddd265f03a5f9938d1a7fedd6e670c1",
+                            "3abeb3b5c9690c1d453c20a1d492664a1f5336c2cb359cce04a37df996f45466",
+                            "185ca0c92f3a1760c64206da9ce63f66c81094b467713701c5150c8115eb4651",
+                            "4a36ba2c1185612926e7f73e1eca905839263b3c4c0f21e6c6c8e731110ecdcb",
+                            "405b276d2bdd8257a4864947a5d2bf8b3908bba72250a0d92a9127eb417f106c",
+                            "1396c4610b0a3417e54bdb8ef646c2e089a9949bd82814c27b0420c8148c3d43",
+                            "28634e6ed6ff1f72936052f2ef6b806606d00ec04a97c97b84d13200fd6ddd00",
+                            "b3a110c515642b16ecf50c024a80b42a7dacc9b99be8880334ac01160686c27c",
+                            "4890e9a8a9656096fdfc57ba7423778efc44c374f0a5812a7ef7cad395fe7185",
+                            "670371ff59c155195ac366e8f398b226fc97ee092edf1b57e0eea8fe7beafd20",
+                            "caf0f6a6ba3b3cd0c242f046e6c41c59ac3e31ef7a2c4e74427b6c8a6929c420",
+                            "b3881d42550e27238c5bb2f2ea63aa96a3a287a9f4cabd065df5f7bc432effb3"
+                        ],
+                        []));
+                }
+                
+                //multi-chunk data root (no redundancy)
+                {
+                    var chunkStoreInitTask = BuildChunkStoreAsync(RedundancyLevel.None);
+                    chunkStoreInitTask.Wait();
+                    var chunkStore = chunkStoreInitTask.Result;
+                    
+                    //"fileB" data intermediate, not a manifest
+                    tests.Add(new TraverseTestElement(
+                        chunkStore,
+                        "3abeb3b5c9690c1d453c20a1d492664a1f5336c2cb359cce04a37df996f45466",
+                        [
+                            "3abeb3b5c9690c1d453c20a1d492664a1f5336c2cb359cce04a37df996f45466",
+                            "185ca0c92f3a1760c64206da9ce63f66c81094b467713701c5150c8115eb4651",
+                            "4a36ba2c1185612926e7f73e1eca905839263b3c4c0f21e6c6c8e731110ecdcb",
+                            "405b276d2bdd8257a4864947a5d2bf8b3908bba72250a0d92a9127eb417f106c"
+                        ],
+                        []));
+                }
+
+                return tests.Select(t => new object[] { t });
+            }
+        }
+        
         // Tests.
+        [Theory, MemberData(nameof(TraverseTests))]
+        public async Task Traverse(TraverseTestElement test)
+        {
+            var chunkTraverser = new ChunkTraverser(test.ChunkStore);
+            List<SwarmReference> foundChunkReferences = [];
+            List<SwarmReference> invalidFoundChunkReferences = [];
+            List<SwarmReference> notFoundChunkReferences = [];
+        
+            await chunkTraverser.TraverseAsync(
+                test.RootReference,
+                (_, r) => { foundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
+                (_, r) => { invalidFoundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
+                r => { notFoundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
+                RedundancyLevel.Paranoid,
+                RedundancyStrategy.Data,
+                true,
+                true);
+        
+            Assert.Equal(test.ExpectedFoundReferences, foundChunkReferences);
+            Assert.Equal(test.ExpectedNotFoundReferences, notFoundChunkReferences);
+            Assert.Empty(invalidFoundChunkReferences);
+        }
+        
         [Theory, MemberData(nameof(TraverseFromDataChunkTests))]
         public async Task TraverseFromDataChunk(TraverseFromDataChunkTestElement test)
         {
