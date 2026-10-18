@@ -1391,7 +1391,7 @@ namespace Etherna.SwarmSdk
                     var response = await beehiveGeneratedClient.StampsGetAsync(cancellationToken).ConfigureAwait(false);
                     return (response.Stamps ?? []).Select(b =>
                             new PostageBatch(
-                                amount: BzzValue.FromPlurString(b.Amount),
+                                amount: b.Amount != null ? BzzValue.FromPlurString(b.Amount) : null,
                                 depth: b.Depth,
                                 blockNumber: b.BlockNumber,
                                 exists: b.Exists,
