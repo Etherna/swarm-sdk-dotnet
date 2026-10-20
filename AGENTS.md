@@ -9,7 +9,7 @@ Libraries multi-target **.NET 8, 9 and 10**; the test and WASM projects target *
 ```bash
 dotnet restore SwarmSdk.sln
 dotnet build SwarmSdk.sln -c Release                 # compiles every target framework
-dotnet test  SwarmSdk.sln -c Release                 # runs the xUnit test project
+dotnet test  SwarmSdk.sln -c Release                 # runs the xUnit test projects
 dotnet test test/SwarmSdk.UnitTest/SwarmSdk.UnitTest.csproj   # single project
 dotnet test --filter "FullyQualifiedName~ReplicaResolverChunkStoreTest"          # single class
 dotnet test --filter "FullyQualifiedName~ReplicaResolverChunkStoreTest.CanFindOriginalChunk"  # single test
@@ -23,7 +23,7 @@ There is no frontend, web host, or database — `dotnet build` produces ready-to
 
 ## Architecture
 
-Three source projects plus one test project:
+Three source projects plus two test projects:
 
 - **`src/SwarmSdk`** (`SwarmSdk`) — Core models, tools, and services to work with Swarm, with no Bee-node dependency. Organized by feature folder:
   - `Models/` — Swarm domain types (`SwarmHash`, `SwarmCac`, `SwarmSoc`, `SwarmAddress`, feeds, postage stamps, `EthAddress`, …). Mostly immutable value-like types with `BuildFrom…`/`BuildNew` static factories.
@@ -35,9 +35,10 @@ Three source projects plus one test project:
   - `Extensions/`, `JsonConverters/`, `TypeConverters/`, `Exceptions/` — supporting code.
 - **`src/SwarmSdk.Client`** (`SwarmSdk.Client`) — Client to talk to a Bee node. `SwarmClient` / `ISwarmClient` is the public entry point; `Clients/Bee/BeeGeneratedClient.cs` and `Clients/Beehive/BeehiveGeneratedClient.cs` are **NSwag-generated** wrappers over the node's HTTP API. Also `Models/` (request/response DTOs like `FileResponse`), `Stores/` (chunk stores backed by the node), and `Tools/`.
 - **`src/SwarmSdk.Wasm`** — WebAssembly host exposing SDK utilities to JS. `IsAotCompatible=true`, not packable, not part of the public NuGet surface. Keep it AOT-safe.
-- **`test/SwarmSdk.UnitTest`** — xUnit + Moq unit tests, mirroring the `SwarmSdk` folder layout.
+- **`test/SwarmSdk.UnitTest`** — xUnit + Moq unit tests of `SwarmSdk`, mirroring its folder layout.
+- **`test/SwarmSdk.Client.UnitTest`** — xUnit + Moq unit tests of `SwarmSdk.Client`, mirroring its folder layout, with `ISwarmClient` mocked where the node would be.
 
-A test project mirrors the library it tests and references only that library, so logic worth unit-testing belongs in the lowest library that can hold it: prefer placing pure, testable logic in `SwarmSdk` core (where it is covered by `SwarmSdk.UnitTest`) and keeping `SwarmSdk.Client` a thin wrapper over it. `SwarmSdk.Client` has no test project of its own; add a mirror `SwarmSdk.Client.UnitTest` only if it ever grows logic that cannot live in core.
+A test project mirrors the library it tests and references only that library, so logic worth unit-testing belongs in the lowest library that can hold it: prefer placing pure, testable logic in `SwarmSdk` core (where it is covered by `SwarmSdk.UnitTest`) and keeping `SwarmSdk.Client` a thin wrapper over it. `SwarmSdk.Client.UnitTest` covers the client-side logic that cannot live in core, such as the mapping of the node answers in `SwarmClientChunkStore`.
 
 Key cross-cutting points:
 
@@ -198,5 +199,5 @@ private void InternalHelper() { ... }
 - xUnit assertions: `Assert.Equal()`, `Assert.NotNull()`, `Assert.Throws<T>()` / `Assert.ThrowsAsync<T>()`
 - Moq for mocking: `new Mock<IChunkStore>()`
 - `FakeTimeProvider` (Microsoft.Extensions.TimeProvider.Testing) for anything time-dependent — never rely on wall-clock sleeps for ordering; advance the fake clock instead
-- The test project mirrors the `SwarmSdk` folder layout (e.g. `Stores/ReplicaResolverChunkStoreTest.cs`)
+- Each test project mirrors the folder layout of its library (e.g. `Stores/ReplicaResolverChunkStoreTest.cs`)
 - **No `ConfigureAwait` in test code.** The opposite of the library rule: inside `[Fact]`/`[Theory]` methods *and* any async helper `await`ed from a test, write plain `await foo()` — the xUnit analyzer rule `xUnit1030` errors on `ConfigureAwait(false)` and (with `TreatWarningsAsErrors`) breaks the build. `CA2007` is not enforced here, so omitting it is correct. The only exception is an async helper invoked synchronously (e.g. `.Wait()` from a `[MemberData]` property getter), which never runs on a test's async context and may keep `ConfigureAwait(false)`.

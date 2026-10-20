@@ -12,7 +12,6 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
-using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Models;
 using System;
 using System.Collections.Generic;
@@ -89,10 +88,7 @@ namespace Etherna.SwarmSdk.Stores
             {
                 return await GetAsync(hash, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception e) when (e is SwarmSdkApiException
-                                          or InvalidOperationException
-                                          or KeyNotFoundException
-                                          or OperationCanceledException)
+            catch (KeyNotFoundException)
             {
                 return null;
             }

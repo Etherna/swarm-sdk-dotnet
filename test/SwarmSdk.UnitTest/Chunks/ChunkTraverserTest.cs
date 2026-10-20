@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
@@ -1000,6 +1001,39 @@ namespace Etherna.SwarmSdk.Chunks
         }
         
         // Tests.
+        [Theory]
+        [InlineData("46be4f99d106518c74fe02262aa4d738117eee47f9bb6bceea523346762372cc")] //manifest root
+        [InlineData("df08922becf846a73648dd793d2b4e8c7d8e14d812ae953b169c3948cc7208db")] //manifest fork node
+        [InlineData("ddf10d58bc29ff8aa4596d0d6f1c7ad4dc96b422c1f8879f22fbd5cb62c63fac")] //data leaf
+        public async Task TraversePropagatesReadFailure(string failingHash)
+        {
+            // Setup.
+            var readFailure = new SwarmSdkApiException(
+                "Internal Server Error",
+                500,
+                "read chunk failed",
+                new Dictionary<string, IEnumerable<string>>(),
+                null);
+            var chunkStore = new ReadFailingChunkStore(
+                await BuildChunkStoreAsync(RedundancyLevel.None),
+                failingHash,
+                readFailure);
+            var chunkTraverser = new ChunkTraverser(chunkStore);
+            List<SwarmReference> notFoundChunkReferences = [];
+            
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmSdkApiException>(() => chunkTraverser.TraverseAsync(
+                "46be4f99d106518c74fe02262aa4d738117eee47f9bb6bceea523346762372cc",
+                null,
+                null,
+                r => { notFoundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
+                RedundancyLevel.None));
+            
+            // Assert.
+            Assert.Same(readFailure, thrown);
+            Assert.Empty(notFoundChunkReferences);
+        }
+        
         [Theory, MemberData(nameof(TraverseTests))]
         public async Task Traverse(TraverseTestElement test)
         {
