@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Signer;
 using System;
@@ -98,7 +99,74 @@ namespace Etherna.SwarmSdk.Models
             Assert.True(rebuilt.ValidateSoc(new Hasher()));
         }
 
+        [Fact]
+        public void BuildFromBytesAcceptsItsAddress()
+        {
+            var bmt = new SwarmChunkBmt();
+            var soc = BuildSignedSoc(bmt);
+
+            var rebuilt = SwarmSoc.BuildFromBytes(soc.Hash, soc.GetFullPayloadToByteArray(), bmt);
+
+            Assert.Equal(soc.Hash, rebuilt.Hash);
+            Assert.Equal(soc.Owner, rebuilt.Owner);
+            Assert.True(rebuilt.ValidateSoc(new Hasher()));
+        }
+
+        [Fact]
+        public void BuildFromBytesRejectsAnotherAddress()
+        {
+            var bmt = new SwarmChunkBmt();
+            var soc = BuildSignedSoc(bmt);
+            var anotherAddress = soc.InnerChunk.Hash;
+
+            var thrown = Assert.Throws<SwarmChunkVerificationException>(
+                () => SwarmSoc.BuildFromBytes(anotherAddress, soc.GetFullPayloadToByteArray(), bmt));
+
+            Assert.Equal(anotherAddress, thrown.Hash);
+        }
+
+        [Fact]
+        public void BuildFromBytesRejectsShortData()
+        {
+            var data = new byte[SwarmSoc.MinSocSize - 1];
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => SwarmSoc.BuildFromBytes(null, data, new SwarmChunkBmt()));
+        }
+
+        [Fact]
+        public void BuildFromBytesRejectsShortDataReadForAnAddress()
+        {
+            var address = BuildInnerChunk().Hash;
+            var data = new byte[SwarmSoc.MinSocSize - 1];
+
+            var thrown = Assert.Throws<SwarmChunkVerificationException>(
+                () => SwarmSoc.BuildFromBytes(address, data, new SwarmChunkBmt()));
+
+            Assert.Equal(address, thrown.Hash);
+        }
+
+        [Fact]
+        public void ValidateSocFailsOnAnotherAddress()
+        {
+            var signer = new PrivateKeySigner(new EthPrivateKey(PrivateKeyHex));
+            var innerChunk = BuildInnerChunk();
+            var anotherAddress = innerChunk.Hash;
+            var soc = new SwarmSoc(Identifier, signer.PublicAddress, innerChunk, anotherAddress);
+            soc.Sign(signer, new Hasher());
+
+            Assert.False(soc.ValidateSoc(new Hasher()));
+            Assert.Equal(anotherAddress, soc.Hash); //the carried address is compared, not rewritten
+        }
+
         // Helpers.
+        private static SwarmSoc BuildSignedSoc(SwarmChunkBmt bmt)
+        {
+            var signer = new PrivateKeySigner(new EthPrivateKey(PrivateKeyHex));
+            var soc = new SwarmSoc(Identifier, signer.PublicAddress, BuildInnerChunk(bmt));
+            soc.Sign(signer, new Hasher());
+            return soc;
+        }
+
         private static SwarmCac BuildInnerChunk(SwarmChunkBmt? bmt = null)
         {
             bmt ??= new SwarmChunkBmt();

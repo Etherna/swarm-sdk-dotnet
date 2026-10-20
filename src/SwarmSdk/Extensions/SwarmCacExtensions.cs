@@ -13,6 +13,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using Etherna.SwarmSdk.Chunks;
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Models;
 using System;
@@ -29,7 +30,9 @@ namespace Etherna.SwarmSdk.Extensions
             ArgumentNullException.ThrowIfNull(chunk);
             
             if (chunk.Hash != reference.Hash)
-                throw new ArgumentException($"Chunk's hash {chunk.Hash} does not match reference {reference}");
+                throw new SwarmChunkVerificationException(
+                    reference.Hash,
+                    $"Chunk's hash {chunk.Hash} does not match reference {reference}");
 
             // Decrypt and decode span.
             ReadOnlyMemory<byte> plainData;
