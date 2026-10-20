@@ -21,6 +21,13 @@ namespace Etherna.SwarmSdk.Stores
 {
     public interface IReadOnlyChunkStore
     {
+        /// <summary>
+        /// Get a chunk
+        /// </summary>
+        /// <param name="hash">The chunk's hash</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The chunk</returns>
+        /// <exception cref="KeyNotFoundException">The chunk is not found</exception>
         Task<SwarmChunk> GetAsync(
             SwarmHash hash,
             CancellationToken cancellationToken = default);
@@ -41,6 +48,12 @@ namespace Etherna.SwarmSdk.Stores
         
         Task<bool> HasChunkAsync(SwarmHash hash, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Try to get a chunk
+        /// </summary>
+        /// <param name="hash">The chunk's hash</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The chunk, or null when the chunk is not found. Any other read failure propagates</returns>
         Task<SwarmChunk?> TryGetAsync(
             SwarmHash hash,
             CancellationToken cancellationToken = default);

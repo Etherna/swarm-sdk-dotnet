@@ -294,5 +294,25 @@ namespace Etherna.SwarmSdk.Chunks
             Assert.Equal(chunksDictionary["6e1839ea477eaf6b8a3f6f900cc3fef9ef638af38e351e16cc68151a4ffe8fe9"].SpanData,
                 ((SwarmCac)recoveredChunk).SpanData);
         }
+
+        [Theory, MemberData(nameof(ReadOnlyChunkStoreBaseTest.ReadFailures), MemberType = typeof(ReadOnlyChunkStoreBaseTest))]
+        public async Task TryFetchAndRecoverPropagatesReadFailure(Exception readFailure)
+        {
+            // Setup.
+            var chunkStore = new MemoryChunkStore();
+            await chunkStore.AddAsync(chunksDictionary["ddf10d58bc29ff8aa4596d0d6f1c7ad4dc96b422c1f8879f22fbd5cb62c63fac"]); //data
+            await chunkStore.AddAsync(chunksDictionary["45a2fb3301637e7cd235a7f4a26ae78da6a115d87d5f8eef840e35ec1d9833bf"]); //data
+            await chunkStore.AddAsync(chunksDictionary["6e1839ea477eaf6b8a3f6f900cc3fef9ef638af38e351e16cc68151a4ffe8fe9"]); //data
+            var failingChunkStore = new ReadFailingChunkStore(
+                chunkStore,
+                "6e1839ea477eaf6b8a3f6f900cc3fef9ef638af38e351e16cc68151a4ffe8fe9",
+                readFailure);
+            
+            var decoder = new ChunkParityDecoder(references, failingChunkStore);
+            
+            // Run & Assert.
+            var thrown = await Assert.ThrowsAnyAsync<Exception>(() => decoder.TryFetchAndRecoverAsync(RedundancyStrategy.Data, false));
+            Assert.Same(readFailure, thrown);
+        }
     }
 }

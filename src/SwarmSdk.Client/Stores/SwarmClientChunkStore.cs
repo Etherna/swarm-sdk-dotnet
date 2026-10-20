@@ -41,9 +41,9 @@ namespace Etherna.SwarmSdk.Stores
                     swarmChunkBmt,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (SwarmSdkApiException)
+            catch (SwarmSdkApiException e) when (e.StatusCode == 404)
             {
-                throw new KeyNotFoundException();
+                throw new KeyNotFoundException($"Chunk {hash} not found", e);
             }
             finally
             {

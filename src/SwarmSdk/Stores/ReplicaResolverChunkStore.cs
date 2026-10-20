@@ -13,14 +13,15 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using Etherna.SwarmSdk.Chunks;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Models;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ExceptionServices;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Stores
 {
@@ -59,7 +60,8 @@ namespace Etherna.SwarmSdk.Stores
                 //   delay * 2: +2 replicas (tot 4)
                 //   delay * 3: +4 replicas (tot 8)
                 //   delay * 4: +8 replicas (tot 16)
-                List<Task<SwarmChunk>> getChunkTasks = [sourceChunkStore.GetAsync(hash, cts.Token)];
+                var originalTask = sourceChunkStore.GetAsync(hash, cts.Token);
+                List<Task<SwarmChunk>> getChunkTasks = [originalTask];
                 foreach (var (replicaHeader, i) in replicaHeaders.Select((r, i) => (r, i)))
                 {
                     var delayMultiplier = 0;
@@ -72,10 +74,14 @@ namespace Etherna.SwarmSdk.Stores
                     getChunkTasks.Add(FetchReplicaAsync(replicaHeader.Hash, levelDelay * delayMultiplier, cts.Token));
                 }
                 
-                // Returns the first replying with success.
+                // Returns the first replying with success. The requests failing for any reason other than not found
+                // are remembered: if nothing is found, the failure of the original request propagates, or the first
+                // failure of a replica when the original was not found, instead of a misleading not found.
+                Exception? originalFailure = null;
+                List<Exception> replicaFailures = [];
                 while (getChunkTasks.Count != 0)
                 {
-                    // Fetch parallelo con WhenAny per "first wins"
+                    // Parallel fetch with WhenAny, first wins.
                     var completedTask = await Task.WhenAny(getChunkTasks).ConfigureAwait(false);
                     getChunkTasks.Remove(completedTask);
 
@@ -84,13 +90,21 @@ namespace Etherna.SwarmSdk.Stores
                         // If success, return and cancel other requests with finally block.
                         return await completedTask.ConfigureAwait(false);
                     }
-                    catch (InvalidOperationException) { }
                     catch (KeyNotFoundException) { }
-                    catch (OperationCanceledException) { }
-                    catch (SwarmSdkApiException) { } // Ignore errors and try the next.
+                    catch (Exception e) when (e is InvalidOperationException or SwarmSdkApiException ||
+                                              (e is OperationCanceledException && !cancellationToken.IsCancellationRequested)) //request timeout
+                    {
+                        if (completedTask == originalTask)
+                            originalFailure = e;
+                        else
+                            replicaFailures.Add(e);
+                    }
                 }
 
                 // Can't find chunk.
+                var readFailure = originalFailure ?? replicaFailures.FirstOrDefault();
+                if (readFailure is not null)
+                    ExceptionDispatchInfo.Throw(readFailure);
                 throw new KeyNotFoundException("All search levels exhausted. Can't find chunk or replicas");
             }
             finally

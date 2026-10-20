@@ -230,5 +230,133 @@ namespace Etherna.SwarmSdk.Stores
             // Assert.
             Assert.Equal(originalChunk, chunkResult);
         }
+
+        [Fact]
+        public async Task OriginalReadFailureIsPreferredOverReplicaFailures()
+        {
+            // Setup.
+            // The replicas fail first and the original request fails later: the failure of the original is reported.
+            var levelDelay = TimeSpan.FromSeconds(1);
+            var fakeTimeProvider = new FakeTimeProvider();
+            SwarmHash originalHash = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var originalFailure = new InvalidOperationException("original");
+            var replicaFailure = new InvalidOperationException("replica");
+            var originalRequest = new TaskCompletionSource<SwarmChunk>();
+            
+            ConcurrentBag<SwarmHash> requests = [];
+            var sourceChunkStoreMock = new Mock<IChunkStore>();
+            sourceChunkStoreMock.Setup(s => s.GetAsync(It.IsAny<SwarmHash>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>((h, _) =>
+                {
+                    requests.Add(h);
+                    return h == originalHash ? originalRequest.Task : Task.FromException<SwarmChunk>(replicaFailure);
+                });
+            
+            var replicaChunkStore = new ReplicaResolverChunkStore(
+                sourceChunkStoreMock.Object,
+                RedundancyLevel.Medium,
+                new Hasher(),
+                levelDelay,
+                fakeTimeProvider);
+
+            // Run.
+            var getTask = Assert.ThrowsAnyAsync<Exception>(() => replicaChunkStore.GetAsync(originalHash));
+            
+            // Release the replica requests of the single Medium level, once the original one is dispatched: they fail
+            // as soon as they run. Then fail the original request, the last one the resolver sees.
+            var timeout = Stopwatch.StartNew();
+            while (requests.Count < 1 && timeout.Elapsed < TimeSpan.FromSeconds(5))
+                await Task.Delay(1);
+            fakeTimeProvider.Advance(levelDelay);
+            while (requests.Count < 3 && timeout.Elapsed < TimeSpan.FromSeconds(5))
+                await Task.Delay(1);
+            originalRequest.SetException(originalFailure);
+            var thrown = await getTask;
+
+            // Assert.
+            Assert.Same(originalFailure, thrown);
+        }
+
+        [Theory, MemberData(nameof(ReadOnlyChunkStoreBaseTest.ReadFailures), MemberType = typeof(ReadOnlyChunkStoreBaseTest))]
+        public async Task ReadFailurePropagatesWhenNothingIsFound(Exception readFailure)
+        {
+            // Setup.
+            // The original request fails and the replicas are not found: the failure is reported, not a missing chunk.
+            var levelDelay = TimeSpan.FromSeconds(1);
+            var fakeTimeProvider = new FakeTimeProvider();
+            SwarmHash originalHash = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            
+            ConcurrentBag<SwarmHash> requests = [];
+            var sourceChunkStoreMock = new Mock<IChunkStore>();
+            sourceChunkStoreMock.Setup(s => s.GetAsync(It.IsAny<SwarmHash>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>(async (h, _) =>
+                {
+                    requests.Add(h);
+                    await Task.Yield();
+                    throw h == originalHash ? readFailure : new KeyNotFoundException();
+                });
+            
+            var replicaChunkStore = new ReplicaResolverChunkStore(
+                sourceChunkStoreMock.Object,
+                RedundancyLevel.Medium,
+                new Hasher(),
+                levelDelay,
+                fakeTimeProvider);
+
+            // Run.
+            var getTask = Assert.ThrowsAnyAsync<Exception>(() => replicaChunkStore.GetAsync(originalHash));
+            
+            // Release the replica requests of the single Medium level, once the original one is dispatched.
+            var timeout = Stopwatch.StartNew();
+            while (requests.Count < 1 && timeout.Elapsed < TimeSpan.FromSeconds(5))
+                await Task.Delay(1);
+            fakeTimeProvider.Advance(levelDelay);
+            var thrown = await getTask;
+
+            // Assert.
+            Assert.Same(readFailure, thrown);
+            Assert.Equal(3, requests.Count); //the original and both replicas were tried
+        }
+
+        [Fact]
+        public async Task ReplicaReadFailurePropagatesWhenOriginalIsNotFound()
+        {
+            // Setup.
+            // The original request is not found and the replicas fail: the failure of a replica is reported.
+            var levelDelay = TimeSpan.FromSeconds(1);
+            var fakeTimeProvider = new FakeTimeProvider();
+            SwarmHash originalHash = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var replicaFailure = new InvalidOperationException("replica");
+            
+            ConcurrentBag<SwarmHash> requests = [];
+            var sourceChunkStoreMock = new Mock<IChunkStore>();
+            sourceChunkStoreMock.Setup(s => s.GetAsync(It.IsAny<SwarmHash>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>((h, _) =>
+                {
+                    requests.Add(h);
+                    return Task.FromException<SwarmChunk>(h == originalHash ? new KeyNotFoundException() : replicaFailure);
+                });
+            
+            var replicaChunkStore = new ReplicaResolverChunkStore(
+                sourceChunkStoreMock.Object,
+                RedundancyLevel.Medium,
+                new Hasher(),
+                levelDelay,
+                fakeTimeProvider);
+
+            // Run.
+            var getTask = Assert.ThrowsAnyAsync<Exception>(() => replicaChunkStore.GetAsync(originalHash));
+            
+            // Release the replica requests of the single Medium level, once the original one is dispatched.
+            var timeout = Stopwatch.StartNew();
+            while (requests.Count < 1 && timeout.Elapsed < TimeSpan.FromSeconds(5))
+                await Task.Delay(1);
+            fakeTimeProvider.Advance(levelDelay);
+            var thrown = await getTask;
+
+            // Assert.
+            Assert.Same(replicaFailure, thrown);
+            Assert.Equal(3, requests.Count); //the original and both replicas were tried
+        }
     }
 }

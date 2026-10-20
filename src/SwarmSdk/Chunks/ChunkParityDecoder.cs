@@ -268,7 +268,6 @@ namespace Etherna.SwarmSdk.Chunks
             IsRecoveryPerformed = true;
         }
 
-        [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
         public async Task<bool> TryFetchAndRecoverAsync(
             RedundancyStrategy firstStrategy,
             bool strategyFallback,
@@ -288,7 +287,7 @@ namespace Etherna.SwarmSdk.Chunks
                     cancellationToken).ConfigureAwait(false);
                 return true;
             }
-            catch
+            catch (KeyNotFoundException)
             {
                 return false;
             }
