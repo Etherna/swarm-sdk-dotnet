@@ -29,13 +29,14 @@ namespace Etherna.SwarmSdk.Chunks
         IReadOnlyChunkStore chunkStore)
     {
         // Public delegates.
-        public delegate Task OnChunkFoundAsync(SwarmCac chunk, SwarmShardReference shardReference);
+        public delegate Task OnChunkFoundAsync(SwarmChunk chunk, SwarmShardReference shardReference);
         public delegate Task OnInvalidChunkFoundAsync(SwarmChunk chunk, SwarmShardReference shardReference);
         public delegate Task OnChunkNotFoundAsync(SwarmShardReference shardReference);
         
         // Methods.
         /// <summary>
-        /// Try to traverse as from a mantaray manifest, and if fails as a data chunk
+        /// Traverse the content of a reference, identifying its root chunk: a single owner chunk is the whole
+        /// traversal, a mantaray manifest root is traversed as a manifest, any other chunk as a data chunk
         /// </summary>
         /// <param name="rootReference">Root traversing chunk</param>
         public async Task TraverseAsync(
@@ -49,60 +50,78 @@ namespace Etherna.SwarmSdk.Chunks
             bool includeParities = false,
             CancellationToken cancellationToken = default)
         {
+            onChunkFound ??= (_, _) => Task.CompletedTask;
+            onInvalidChunkFound ??= (_, _) => Task.CompletedTask;
+            onChunkNotFound ??= _ => Task.CompletedTask;
+            
             // Upgrade redundancy strategy from None to Data.
             if (redundancyStrategy == RedundancyStrategy.None)
                 redundancyStrategy = RedundancyStrategy.Data;
             
+            // Resolve root chunk.
+            var rootChunk = await TryGetChunkAsync(
+                rootReference.Hash,
+                redundancyLevel,
+                cancellationToken).ConfigureAwait(false);
+            var rootShardReference = new SwarmShardReference(rootReference, false);
+            if (rootChunk == null)
+            {
+                await onChunkNotFound(rootShardReference).ConfigureAwait(false);
+                return;
+            }
+            await onChunkFound(rootChunk, rootShardReference).ConfigureAwait(false);
+            
+            // A single owner chunk is the whole traversal, as bee does: don't enter the wrapped chunk.
+            if (rootChunk is not SwarmCac rootCac)
+                return;
+            
             // Identify if is manifest root chunk.
-            var isManifestChunk = false;
+            var rootNode = new ReferencedMantarayNode(
+                rootCac,
+                rootReference,
+                chunkStore,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                null,
+                NodeType.Edge);
             try
             {
-                await ReferencedMantarayManifest.BuildNewAsync(
-                    rootReference,
-                    chunkStore,
-                    redundancyLevel,
-                    redundancyStrategy,
-                    redundancyStrategyFallback,
-                    cancellationToken).ConfigureAwait(false);
-                isManifestChunk = true;
+                rootNode.DecodeFromChunk();
             }
             catch (InvalidOperationException) //in case it's not a manifest
-            { }
-            catch (KeyNotFoundException) //in case root chunk is not found
             {
-                onChunkNotFound?.Invoke(new SwarmShardReference(rootReference, false));
+                // The data loop marks each dequeued reference as visited, the root included: start from an empty set.
+                await TraverseDataFromChunkHelperAsync(
+                    rootCac,
+                    rootReference,
+                    [],
+                    onChunkFound,
+                    onChunkNotFound,
+                    redundancyStrategy,
+                    redundancyStrategyFallback,
+                    includeParities,
+                    cancellationToken).ConfigureAwait(false);
                 return;
             }
 
-            // Traverse with identified chunk type.
-            if (isManifestChunk)
-                await TraverseFromMantarayManifestRootAsync(
-                    rootReference,
-                    onChunkFound,
-                    onInvalidChunkFound,
-                    onChunkNotFound,
-                    redundancyLevel,
-                    redundancyStrategy,
-                    redundancyStrategyFallback,
-                    includeParities,
-                    cancellationToken).ConfigureAwait(false);
-            else
-                await TraverseFromDataChunkAsync(
-                    rootReference,
-                    onChunkFound,
-                    onInvalidChunkFound,
-                    onChunkNotFound,
-                    redundancyLevel,
-                    redundancyStrategy,
-                    redundancyStrategyFallback,
-                    includeParities,
-                    cancellationToken).ConfigureAwait(false);
+            // Traverse as manifest. The decoded node helper doesn't mark its own node as visited, the resolving
+            // helper does it before reading a node: the root is marked here, so a fork pointing back to it is skipped.
+            await TraverseMantarayNodeFromDecodedHelperAsync(
+                rootNode,
+                [rootReference],
+                onChunkFound,
+                onInvalidChunkFound,
+                onChunkNotFound,
+                redundancyLevel,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                includeParities,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task TraverseFromDataChunkAsync(
             SwarmReference reference,
             OnChunkFoundAsync? onChunkFound,
-            OnInvalidChunkFoundAsync? onInvalidChunkFound,
             OnChunkNotFoundAsync? onChunkNotFound,
             RedundancyLevel redundancyLevel,
             RedundancyStrategy redundancyStrategy, 
@@ -111,7 +130,6 @@ namespace Etherna.SwarmSdk.Chunks
             CancellationToken cancellationToken = default)
         {
             onChunkFound ??= (_, _) => Task.CompletedTask;
-            onInvalidChunkFound ??= (_, _) => Task.CompletedTask;
             onChunkNotFound ??= _ => Task.CompletedTask;
 
             // Upgrade redundancy strategy from None to Data.
@@ -123,7 +141,6 @@ namespace Etherna.SwarmSdk.Chunks
                 reference,
                 [],
                 onChunkFound,
-                onInvalidChunkFound,
                 onChunkNotFound,
                 redundancyLevel,
                 redundancyStrategy,
@@ -204,13 +221,12 @@ namespace Etherna.SwarmSdk.Chunks
         }
 
         // Helpers.
-        private async Task TraverseDataHelperAsync(
+        private async Task TraverseDataFromChunkHelperAsync(
+            SwarmCac rootCac,
             SwarmReference rootReference,
             HashSet<SwarmReference> visitedReferences,
             OnChunkFoundAsync onChunkFound,
-            OnInvalidChunkFoundAsync onInvalidChunkFound,
             OnChunkNotFoundAsync onChunkNotFound,
-            RedundancyLevel redundancyLevel,
             RedundancyStrategy redundancyStrategy, 
             bool redundancyStrategyFallback,
             bool includeParities,
@@ -218,27 +234,6 @@ namespace Etherna.SwarmSdk.Chunks
         {
             Queue<(SwarmCac Chunk, SwarmReference Reference)> chunkRefPairs = [];
             var hasher = new Hasher();
-            
-            // Try resolve root chunk from reference.
-            var rootChunkStore = redundancyLevel == RedundancyLevel.None ?
-                chunkStore :
-                new ReplicaResolverChunkStore(chunkStore, redundancyLevel, hasher);
-
-            var rootChunk = await rootChunkStore.TryGetAsync(
-                rootReference.Hash,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            var rootShardReference = new SwarmShardReference(rootReference, false);
-            if (rootChunk == null)
-            {
-                await onChunkNotFound(rootShardReference).ConfigureAwait(false);
-                return;
-            }
-            if (rootChunk is not SwarmCac rootCac) //soc is not supported
-            {
-                await onInvalidChunkFound(rootChunk, rootShardReference).ConfigureAwait(false);
-                return;
-            }
-            await onChunkFound(rootCac, rootShardReference).ConfigureAwait(false);
             
             // Run levels iteration starting from root chunk.
             chunkRefPairs.Enqueue((rootCac, rootReference));
@@ -287,10 +282,48 @@ namespace Etherna.SwarmSdk.Chunks
             }
         }
         
-        private async Task TraverseMantarayNodeHelperAsync(
-            SwarmReference reference,
-            IReadOnlyDictionary<string, string>? metadata,
-            NodeType nodeTypeFlags,
+        private async Task TraverseDataHelperAsync(
+            SwarmReference rootReference,
+            HashSet<SwarmReference> visitedReferences,
+            OnChunkFoundAsync onChunkFound,
+            OnChunkNotFoundAsync onChunkNotFound,
+            RedundancyLevel redundancyLevel,
+            RedundancyStrategy redundancyStrategy, 
+            bool redundancyStrategyFallback,
+            bool includeParities,
+            CancellationToken cancellationToken)
+        {
+            // Try resolve root chunk from reference.
+            var rootChunk = await TryGetChunkAsync(
+                rootReference.Hash,
+                redundancyLevel,
+                cancellationToken).ConfigureAwait(false);
+            var rootShardReference = new SwarmShardReference(rootReference, false);
+            if (rootChunk == null)
+            {
+                await onChunkNotFound(rootShardReference).ConfigureAwait(false);
+                return;
+            }
+            await onChunkFound(rootChunk, rootShardReference).ConfigureAwait(false);
+            
+            // A single owner chunk is the whole traversal, as bee does: don't enter the wrapped chunk.
+            if (rootChunk is not SwarmCac rootCac)
+                return;
+            
+            await TraverseDataFromChunkHelperAsync(
+                rootCac,
+                rootReference,
+                visitedReferences,
+                onChunkFound,
+                onChunkNotFound,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                includeParities,
+                cancellationToken).ConfigureAwait(false);
+        }
+        
+        private async Task TraverseMantarayNodeFromDecodedHelperAsync(
+            ReferencedMantarayNode manifestNode,
             HashSet<SwarmReference> visitedReferences,
             OnChunkFoundAsync onChunkFound,
             OnInvalidChunkFoundAsync onInvalidChunkFound,
@@ -301,41 +334,6 @@ namespace Etherna.SwarmSdk.Chunks
             bool includeParities,
             CancellationToken cancellationToken)
         {
-            visitedReferences.Add(reference);
-            
-            // Try build node from reference.
-            var nodeChunkStore = redundancyLevel == RedundancyLevel.None ?
-                chunkStore :
-                new ReplicaResolverChunkStore(chunkStore, redundancyLevel, new Hasher());
-            
-            // Resolve root chunk.
-            var nodeChunk = await nodeChunkStore.TryGetAsync(
-                reference.Hash,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            var nodeShardReference = new SwarmShardReference(reference, false);
-            if (nodeChunk == null)
-            {
-                await onChunkNotFound(nodeShardReference).ConfigureAwait(false);
-                return;
-            }
-            if (nodeChunk is not SwarmCac nodeCac) //soc is not supported
-            {
-                await onInvalidChunkFound(nodeChunk, nodeShardReference).ConfigureAwait(false);
-                return;
-            }
-            await onChunkFound(nodeCac, nodeShardReference).ConfigureAwait(false);
-            
-            // Build and decode node.
-            var manifestNode = new ReferencedMantarayNode(
-                nodeCac,
-                reference,
-                chunkStore,
-                redundancyStrategy,
-                redundancyStrategyFallback,
-                metadata,
-                nodeTypeFlags);
-            manifestNode.DecodeFromChunk();
-            
             // Traverse forks.
             foreach (var fork in manifestNode.Forks.Values)
             {
@@ -366,13 +364,83 @@ namespace Etherna.SwarmSdk.Chunks
                     manifestNode.EntryReference.Value,
                     visitedReferences,
                     onChunkFound,
-                    onInvalidChunkFound,
                     onChunkNotFound,
                     redundancyLevel,
                     redundancyStrategy,
                     redundancyStrategyFallback,
                     includeParities,
                     cancellationToken).ConfigureAwait(false);
+        }
+        
+        private async Task TraverseMantarayNodeHelperAsync(
+            SwarmReference reference,
+            IReadOnlyDictionary<string, string>? metadata,
+            NodeType nodeTypeFlags,
+            HashSet<SwarmReference> visitedReferences,
+            OnChunkFoundAsync onChunkFound,
+            OnInvalidChunkFoundAsync onInvalidChunkFound,
+            OnChunkNotFoundAsync onChunkNotFound,
+            RedundancyLevel redundancyLevel,
+            RedundancyStrategy redundancyStrategy, 
+            bool redundancyStrategyFallback,
+            bool includeParities,
+            CancellationToken cancellationToken)
+        {
+            visitedReferences.Add(reference);
+            
+            // Resolve node chunk.
+            var nodeChunk = await TryGetChunkAsync(
+                reference.Hash,
+                redundancyLevel,
+                cancellationToken).ConfigureAwait(false);
+            var nodeShardReference = new SwarmShardReference(reference, false);
+            if (nodeChunk == null)
+            {
+                await onChunkNotFound(nodeShardReference).ConfigureAwait(false);
+                return;
+            }
+            if (nodeChunk is not SwarmCac nodeCac) //soc is not a manifest node
+            {
+                await onInvalidChunkFound(nodeChunk, nodeShardReference).ConfigureAwait(false);
+                return;
+            }
+            await onChunkFound(nodeCac, nodeShardReference).ConfigureAwait(false);
+            
+            // Build and decode node.
+            var manifestNode = new ReferencedMantarayNode(
+                nodeCac,
+                reference,
+                chunkStore,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                metadata,
+                nodeTypeFlags);
+            manifestNode.DecodeFromChunk();
+            
+            await TraverseMantarayNodeFromDecodedHelperAsync(
+                manifestNode,
+                visitedReferences,
+                onChunkFound,
+                onInvalidChunkFound,
+                onChunkNotFound,
+                redundancyLevel,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                includeParities,
+                cancellationToken).ConfigureAwait(false);
+        }
+        
+        private Task<SwarmChunk?> TryGetChunkAsync(
+            SwarmHash hash,
+            RedundancyLevel redundancyLevel,
+            CancellationToken cancellationToken)
+        {
+            // Use chunk replica resolver if required.
+            var leveledChunkStore = redundancyLevel == RedundancyLevel.None ?
+                chunkStore :
+                new ReplicaResolverChunkStore(chunkStore, redundancyLevel, new Hasher());
+            
+            return leveledChunkStore.TryGetAsync(hash, cancellationToken);
         }
     }
 }
