@@ -106,6 +106,8 @@ namespace Etherna.SwarmSdk.Manifest
             if (Chunk.Decode(Reference, new Hasher()) is not SwarmDecodedDataCac decodedChunk)
                 throw new InvalidOperationException("Intermediate chunk is not a manifest node");
             var data = decodedChunk.Data.ToArray();
+            if (data.Length < EncryptionKey256.KeySize + VersionHashSize)
+                throw new InvalidOperationException("Chunk is too short to be a manifest node");
 
             // Get obfuscation key and de-obfuscate.
             var readIndex = 0;

@@ -17,6 +17,7 @@ using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Manifest;
 using Etherna.SwarmSdk.Models;
+using Etherna.SwarmSdk.Services;
 using Etherna.SwarmSdk.Stores;
 using System;
 using System.Collections.Generic;
@@ -948,6 +949,23 @@ namespace Etherna.SwarmSdk.Chunks
                             "4a36ba2c1185612926e7f73e1eca905839263b3c4c0f21e6c6c8e731110ecdcb",
                             "405b276d2bdd8257a4864947a5d2bf8b3908bba72250a0d92a9127eb417f106c"
                         ],
+                        []));
+                }
+                
+                //single-chunk data root, shorter than a manifest node header (no redundancy)
+                {
+                    var chunkStore = new MemoryChunkStore();
+                    var data = new byte[EncryptionKey256.KeySize + MantarayNodeBase.VersionHashSize - 1];
+                    new Random(0).NextBytes(data);
+                    
+                    var writeTask = new ChunkService().WriteDataChunksAsync(chunkStore, data);
+                    writeTask.Wait();
+                    var rootReference = writeTask.Result;
+                    
+                    tests.Add(new TraverseTestElement(
+                        chunkStore,
+                        rootReference,
+                        [rootReference],
                         []));
                 }
 
