@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Signer;
 using System;
@@ -41,10 +42,16 @@ namespace Etherna.SwarmSdk.Models
         {
             ArgumentNullException.ThrowIfNull(swarmChunkBmt);
             
+            // Data read for an address must be the single owner chunk at that address: a shape, a signature or an
+            // address that doesn't verify is a verification failure there, an argument error otherwise.
             if (data.Length < MinSocSize)
-                throw new ArgumentOutOfRangeException(nameof(data), $"Data can't be less than {MinSocSize} bytes.");
+                throw hash.HasValue
+                    ? BuildNotTheChunkException(hash.Value, $"it is shorter than {MinSocSize} bytes")
+                    : new ArgumentOutOfRangeException(nameof(data), $"Data can't be less than {MinSocSize} bytes.");
             if (data.Length > MaxSocSize)
-                throw new ArgumentOutOfRangeException(nameof(data), $"Data can't be greater than {MaxSocSize} bytes.");
+                throw hash.HasValue
+                    ? BuildNotTheChunkException(hash.Value, $"it is longer than {MaxSocSize} bytes")
+                    : new ArgumentOutOfRangeException(nameof(data), $"Data can't be greater than {MaxSocSize} bytes.");
 
             // Extract all fields.
             var cursor = 0;
@@ -60,7 +67,24 @@ namespace Etherna.SwarmSdk.Models
             
             // Recover owner information.
             var toSignDigest = BuildToSignDigest(identifier, innerChunkHash, swarmChunkBmt.Hasher);
-            var owner = signature.RecoverOwner(toSignDigest, swarmChunkBmt.Hasher);
+            EthAddress owner;
+            try
+            {
+                owner = signature.RecoverOwner(toSignDigest, swarmChunkBmt.Hasher);
+            }
+            catch (ArgumentException e) when (hash.HasValue)
+            {
+                throw BuildNotTheChunkException(hash.Value, "its signature doesn't recover an owner", e);
+            }
+            
+            // Verify the address, when the data was read for one: the identifier and the owner recovered from the
+            // signature must give it.
+            if (hash.HasValue)
+            {
+                var actualHash = BuildHash(identifier, owner, swarmChunkBmt.Hasher);
+                if (actualHash != hash.Value)
+                    throw BuildNotTheChunkException(hash.Value, $"its identifier and owner give address {actualHash}");
+            }
 
             return new SwarmSoc(identifier, owner, innerChunk, hash, signature);
         }
@@ -140,8 +164,11 @@ namespace Etherna.SwarmSdk.Models
 
         public bool ValidateSoc(Hasher hasher)
         {
-            // Rebuild hash, has same cost than verify.
-            hash = BuildHash(Identifier, Owner, hasher);
+            // Verify address: the one the chunk carries must be the one its identifier and owner give.
+            var actualHash = BuildHash(Identifier, Owner, hasher);
+            if (hash.HasValue && hash.Value != actualHash)
+                return false;
+            hash = actualHash;
             
             // Verify signature.
             if (!Signature.HasValue ||
@@ -179,6 +206,18 @@ namespace Etherna.SwarmSdk.Models
                 identifier.ToReadOnlyMemory(),
                 innerChunkHash.ToReadOnlyMemory()
             ]);
+        }
+        
+        // Helpers.
+        private static SwarmChunkVerificationException BuildNotTheChunkException(
+            SwarmHash hash,
+            string reason,
+            Exception? innerException = null)
+        {
+            var message = $"Data is not the single owner chunk at {hash}: {reason}";
+            return innerException is null
+                ? new SwarmChunkVerificationException(hash, message)
+                : new SwarmChunkVerificationException(hash, message, innerException);
         }
     }
 }

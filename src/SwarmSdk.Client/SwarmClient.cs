@@ -1751,7 +1751,8 @@ namespace Etherna.SwarmSdk
             if (chunk is not SwarmSoc soc ||
                 soc.Owner != owner ||
                 soc.Identifier != identifier)
-                throw new InvalidOperationException(
+                throw new SwarmChunkVerificationException(
+                    address,
                     $"Downloaded chunk at {address} is not the expected single owner chunk");
 
             return soc;

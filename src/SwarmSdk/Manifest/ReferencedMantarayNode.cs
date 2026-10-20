@@ -51,7 +51,9 @@ namespace Etherna.SwarmSdk.Manifest
             ArgumentNullException.ThrowIfNull(chunk);
             
             if (chunk.Hash != reference.Hash)
-                throw new ArgumentException($"Chunk's hash {chunk.Hash} does not match reference {reference}");
+                throw new SwarmChunkVerificationException(
+                    reference.Hash,
+                    $"Chunk's hash {chunk.Hash} does not match reference {reference}");
 
             this.chunkStore = chunkStore;
             this.redundancyStrategy = redundancyStrategy;
