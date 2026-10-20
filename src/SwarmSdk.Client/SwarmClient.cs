@@ -2090,7 +2090,7 @@ namespace Etherna.SwarmSdk
                             cancellationToken).ConfigureAwait(false);
                         return true;
                     }
-                    catch (SwarmSdkApiException)
+                    catch (SwarmSdkApiException e) when (e.StatusCode == 404)
                     {
                         return false;
                     }
@@ -2104,7 +2104,7 @@ namespace Etherna.SwarmSdk
                             cancellationToken).ConfigureAwait(false);
                         return true;
                     }
-                    catch (SwarmSdkApiException)
+                    catch (SwarmSdkApiException e) when (e.StatusCode == 404)
                     {
                         return false;
                     }
