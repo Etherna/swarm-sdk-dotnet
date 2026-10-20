@@ -56,6 +56,7 @@ Bugs and features are tracked in Jira project **SSDK** (https://etherna.atlassia
 ## General Principles
 
 - Keep commits clean: only include changes strictly necessary for the task at hand.
+- Keep the documentation wiki aligned: user-facing docs live in the sibling `swarm-sdk-dotnet.wiki` repo (published at https://github.com/Etherna/swarm-sdk-dotnet/wiki, checked out next to this one). Every substantial change to the public API, configuration, features, or architecture must be reported there in the same work line (the wiki branch mirrors the code branch: `dev`, `hotfix/x.y.z`, `release/x.y.z`). See its own `AGENTS.md` for its conventions.
 - Never reference AI agents or assistants in commits or code — no agent names, no `Co-Authored-By` agent trailers, no "generated/assisted by" notes. Commit messages and code must read as the team's own work.
 - Exceptions to these conventions are accepted when strictly necessary or when they significantly improve code quality. Justify with a comment where needed.
 - All elements (usings, properties, methods, fields, enum members, etc.) are always alphabetically ordered within their respective sections.

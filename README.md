@@ -17,6 +17,7 @@ data from Swarm, compute Swarm addresses, work with feeds and postage stamps, an
 - [Packages](#packages)
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [Documentation](#documentation)
 - [Supported frameworks](#supported-frameworks)
 - [Building and testing](#building-and-testing)
 - [Project layout](#project-layout)
@@ -129,6 +130,13 @@ Console.WriteLine($"Required postage batch size: {result.RequiredPostageBatchByt
 
 Beyond chunking, the SDK can also read and write Mantaray manifests and build, sign and resolve feeds — see
 the `Services/`, `Chunks/`, `Manifest/` and `Models/` folders under `src/SwarmSdk`.
+
+## Documentation
+
+The complete documentation lives in the **[SwarmSDK wiki](https://github.com/Etherna/swarm-sdk-dotnet/wiki)**:
+getting started, the core concepts (hashes and references, chunks, chunk stores), uploading and reading
+content, manifests, feeds, postage stamps, redundancy, the Bee client, and the exceptions and best
+practices references.
 
 ## Supported frameworks
 
