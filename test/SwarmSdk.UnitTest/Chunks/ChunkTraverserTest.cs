@@ -218,6 +218,19 @@ namespace Etherna.SwarmSdk.Chunks
                         ]));
                 }
 
+                //single owner chunk root, wrapping a stored data chunk that isn't entered (no redundancy)
+                {
+                    var chunkStoreInitTask = BuildSocChunkStoreAsync();
+                    chunkStoreInitTask.Wait();
+                    var (chunkStore, socReference) = chunkStoreInitTask.Result;
+                    
+                    tests.Add(new TraverseFromDataChunkTestElement(
+                        chunkStore,
+                        socReference,
+                        [socReference],
+                        []));
+                }
+
                 return tests.Select(t => new object[] { t });
             }
         }
@@ -969,6 +982,19 @@ namespace Etherna.SwarmSdk.Chunks
                         []));
                 }
 
+                //single owner chunk root, wrapping a stored data chunk that isn't entered (no redundancy)
+                {
+                    var chunkStoreInitTask = BuildSocChunkStoreAsync();
+                    chunkStoreInitTask.Wait();
+                    var (chunkStore, socReference) = chunkStoreInitTask.Result;
+                    
+                    tests.Add(new TraverseTestElement(
+                        chunkStore,
+                        socReference,
+                        [socReference],
+                        []));
+                }
+
                 return tests.Select(t => new object[] { t });
             }
         }
@@ -1002,13 +1028,11 @@ namespace Etherna.SwarmSdk.Chunks
         {
             var chunkTraverser = new ChunkTraverser(test.ChunkStore);
             List<SwarmReference> foundChunkReferences = [];
-            List<SwarmReference> invalidFoundChunkReferences = [];
             List<SwarmReference> notFoundChunkReferences = [];
         
             await chunkTraverser.TraverseFromDataChunkAsync(
                 test.RootReference,
                 (_, r) => { foundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
-                (_, r) => { invalidFoundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
                 r => { notFoundChunkReferences.Add(r.Reference); return Task.CompletedTask; },
                 RedundancyLevel.Paranoid,
                 RedundancyStrategy.Data,
@@ -1017,7 +1041,6 @@ namespace Etherna.SwarmSdk.Chunks
         
             Assert.Equal(test.ExpectedFoundReferences, foundChunkReferences);
             Assert.Equal(test.ExpectedNotFoundReferences, notFoundChunkReferences);
-            Assert.Empty(invalidFoundChunkReferences);
         }
         
         [Theory, MemberData(nameof(TraverseFromMantarayManifestRootTests))]
@@ -1251,6 +1274,28 @@ namespace Etherna.SwarmSdk.Chunks
             await dirManifest.GetReferenceAsync(new Hasher()).ConfigureAwait(false);
 
             return chunkStore;
+        }
+        
+        private static async Task<(IChunkStore ChunkStore, SwarmReference SocReference)> BuildSocChunkStoreAsync()
+        {
+            var chunkStore = new MemoryChunkStore();
+            var hasher = new Hasher();
+            
+            // Store a data chunk, and a signed single owner chunk wrapping it.
+            var innerData = new byte[42];
+            new Random(0).NextBytes(innerData);
+            var innerReference = await new ChunkService().WriteDataChunksAsync(chunkStore, innerData).ConfigureAwait(false);
+            var innerChunk = (SwarmCac)await chunkStore.GetAsync(innerReference.Hash).ConfigureAwait(false);
+            
+            var privateKey = new EthPrivateKey("0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d");
+            var soc = new SwarmSoc(
+                Enumerable.Range(0, SwarmSocIdentifier.IdentifierSize).Select(i => (byte)i).ToArray(),
+                privateKey.Address,
+                innerChunk);
+            soc.SignWithPrivateKey(privateKey, hasher);
+            await chunkStore.AddAsync(soc).ConfigureAwait(false);
+
+            return (chunkStore, soc.Hash);
         }
     }
 }
