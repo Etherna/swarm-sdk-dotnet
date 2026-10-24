@@ -1364,7 +1364,7 @@ namespace Etherna.SwarmSdk
             }
         }
 
-        public async Task<PostageBatch[]> GetOwnedPostageBatchesAsync(
+        public async Task<PostageBatchResponse[]> GetOwnedPostageBatchesAsync(
             CancellationToken cancellationToken = default)
         {
             switch (ApiCompatibility)
@@ -1372,7 +1372,7 @@ namespace Etherna.SwarmSdk
                 case SwarmClients.Bee:
                 {
                     var response = await beeGeneratedClient.StampsGetAsync(cancellationToken).ConfigureAwait(false);
-                    return response.Stamps.Select(b =>
+                    return response.Stamps.Select(b => new PostageBatchResponse(
                             new PostageBatch(
                                 amount: b.Amount != null ? BzzValue.FromPlurString(b.Amount) : null,
                                 depth: b.Depth,
@@ -1383,24 +1383,26 @@ namespace Etherna.SwarmSdk
                                 label: b.Label,
                                 ttl: TimeSpan.FromSeconds(Math.Min(b.BatchTTL, TimeSpanMaxSeconds)),
                                 isUsable: b.Usable,
-                                utilization: (uint)b.Utilization))
+                                utilization: (uint)b.Utilization),
+                            null))
                         .ToArray();
                 }
                 case SwarmClients.Beehive:
                 {
                     var response = await beehiveGeneratedClient.StampsGetAsync(cancellationToken).ConfigureAwait(false);
-                    return (response.Stamps ?? []).Select(b =>
+                    return (response.Stamps ?? []).Select(b => new PostageBatchResponse(
                             new PostageBatch(
                                 amount: b.Amount != null ? BzzValue.FromPlurString(b.Amount) : null,
                                 depth: b.Depth,
-                                blockNumber: b.BlockNumber,
-                                exists: b.Exists,
+                                blockNumber: b.BlockNumber ?? 0, //unknown when the error is set
+                                exists: b.Exists ?? false, //unknown when the error is set
                                 id: b.BatchID,
                                 isImmutable: b.ImmutableFlag,
                                 label: b.Label,
                                 ttl: TimeSpan.FromSeconds(Math.Min(b.BatchTTL, TimeSpanMaxSeconds)),
                                 isUsable: b.Usable,
-                                utilization: b.Utilization))
+                                utilization: b.Utilization),
+                            b.Error))
                         .ToArray();
                 }
                 default:
@@ -1494,7 +1496,7 @@ namespace Etherna.SwarmSdk
             }
         }
 
-        public async Task<PostageBatch> GetPostageBatchAsync(
+        public async Task<PostageBatchResponse> GetPostageBatchAsync(
             PostageBatchId batchId,
             CancellationToken cancellationToken = default)
         {
@@ -1505,34 +1507,38 @@ namespace Etherna.SwarmSdk
                     var response = await beeGeneratedClient.StampsGetAsync(
                         batchId.ToString(),
                         cancellationToken).ConfigureAwait(false);
-                    return new PostageBatch(
-                        amount: response.Amount != null ? BzzValue.FromPlurString(response.Amount) : null,
-                        depth: response.Depth,
-                        blockNumber: response.BlockNumber,
-                        exists: response.Exists,
-                        id: response.BatchID,
-                        isImmutable: response.ImmutableFlag,
-                        label: response.Label,
-                        ttl: TimeSpan.FromSeconds(Math.Min(response.BatchTTL, TimeSpanMaxSeconds)),
-                        isUsable: response.Usable,
-                        utilization: (uint)response.Utilization);
+                    return new PostageBatchResponse(
+                        new PostageBatch(
+                            amount: response.Amount != null ? BzzValue.FromPlurString(response.Amount) : null,
+                            depth: response.Depth,
+                            blockNumber: response.BlockNumber,
+                            exists: response.Exists,
+                            id: response.BatchID,
+                            isImmutable: response.ImmutableFlag,
+                            label: response.Label,
+                            ttl: TimeSpan.FromSeconds(Math.Min(response.BatchTTL, TimeSpanMaxSeconds)),
+                            isUsable: response.Usable,
+                            utilization: (uint)response.Utilization),
+                        null);
                 }
                 case SwarmClients.Beehive:
                 {
                     var response = await beehiveGeneratedClient.StampsGetAsync(
                         batchId.ToString(),
                         cancellationToken).ConfigureAwait(false);
-                    return new PostageBatch(
-                        amount: response.Amount != null ? BzzValue.FromPlurString(response.Amount) : null,
-                        depth: response.Depth,
-                        blockNumber: response.BlockNumber,
-                        exists: response.Exists,
-                        id: response.BatchID,
-                        isImmutable: response.ImmutableFlag,
-                        label: response.Label,
-                        ttl: TimeSpan.FromSeconds(Math.Min(response.BatchTTL, TimeSpanMaxSeconds)),
-                        isUsable: response.Usable,
-                        utilization: response.Utilization);
+                    return new PostageBatchResponse(
+                        new PostageBatch(
+                            amount: response.Amount != null ? BzzValue.FromPlurString(response.Amount) : null,
+                            depth: response.Depth,
+                            blockNumber: response.BlockNumber ?? 0, //unknown when the error is set
+                            exists: response.Exists ?? false, //unknown when the error is set
+                            id: response.BatchID,
+                            isImmutable: response.ImmutableFlag,
+                            label: response.Label,
+                            ttl: TimeSpan.FromSeconds(Math.Min(response.BatchTTL, TimeSpanMaxSeconds)),
+                            isUsable: response.Usable,
+                            utilization: response.Utilization),
+                        response.Error);
                 }
                 default:
                     throw new InvalidOperationException();

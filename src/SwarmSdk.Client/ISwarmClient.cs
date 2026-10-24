@@ -432,9 +432,9 @@ namespace Etherna.SwarmSdk
         Task<NodeInfo> GetNodeInfoAsync(CancellationToken cancellationToken = default);
 
         /// <summary>Get all owned postage batches by this node.</summary>
-        /// <returns>List of all owned postage batches</returns>
+        /// <returns>List of all owned postage batches, each with the reason Beehive gives when it could not read it live</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<PostageBatch[]> GetOwnedPostageBatchesAsync(CancellationToken cancellationToken = default);
+        Task<PostageBatchResponse[]> GetOwnedPostageBatchesAsync(CancellationToken cancellationToken = default);
 
         /// <summary>Get list of pending transactions.</summary>
         /// <returns>List of pending transactions</returns>
@@ -451,9 +451,9 @@ namespace Etherna.SwarmSdk
 
         /// <summary>Get an individual postage batch status.</summary>
         /// <param name="batchId">Postage batch ID.</param>
-        /// <returns>Returns an individual postage batch state</returns>
+        /// <returns>Returns an individual postage batch state, with the reason Beehive gives when it could not read it live</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<PostageBatch> GetPostageBatchAsync(
+        Task<PostageBatchResponse> GetPostageBatchAsync(
             PostageBatchId batchId,
             CancellationToken cancellationToken = default);
 

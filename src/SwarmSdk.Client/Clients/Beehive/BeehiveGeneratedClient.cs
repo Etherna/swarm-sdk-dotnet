@@ -635,6 +635,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new SwarmSdkApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -989,6 +1009,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -1357,6 +1397,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new SwarmSdkApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -1466,6 +1526,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
                         {
                             var responseData_ = response_.Content == null ? null : await ReadAsStringAsync(response_.Content, cancellationToken).ConfigureAwait(false);
                             throw new SwarmSdkApiException("The HTTP status code of the response was not expected (" + status_ + ").", status_, responseData_, headers_, null);
@@ -1569,6 +1649,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -1849,6 +1949,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -2924,6 +3044,26 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                                 throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
                             }
                             throw new SwarmSdkApiException<BeeErrorDto>("Not Found", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 422)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Unprocessable Entity", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
+                        }
+                        else
+                        if (status_ == 503)
+                        {
+                            var objectResponse_ = await ReadObjectResponseAsync<BeeErrorDto>(response_, headers_, cancellationToken).ConfigureAwait(false);
+                            if (objectResponse_.Object == null)
+                            {
+                                throw new SwarmSdkApiException("Response was null which was not expected.", status_, objectResponse_.Text, headers_, null);
+                            }
+                            throw new SwarmSdkApiException<BeeErrorDto>("Service Unavailable", status_, objectResponse_.Text, headers_, objectResponse_.Object, null);
                         }
                         else
                         {
@@ -4040,6 +4180,214 @@ namespace Etherna.SwarmSdk.Clients.Beehive
     }
 
     [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class NodePinImportDto
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("importId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string ImportId { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("nodeId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string NodeId { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("reference")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.StringLength(128, MinimumLength = 64)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^([a-fA-F0-9]{64}|[a-fA-F0-9]{128})$")]
+        public string Reference { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("outcome")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<NodePinImportOutcome>))]
+        public NodePinImportOutcome Outcome { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("pinnedChunks")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public long PinnedChunks { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("missingChunks")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> MissingChunks { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("invalidChunks")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> InvalidChunks { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("failureReason")]
+        public string? FailureReason { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("unpinnedByImport")]
+        public bool UnpinnedByImport { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("unpinFailureReason")]
+        public string? UnpinFailureReason { get; set; } = default!;
+
+        /// <summary>
+        /// Whether the content is pinned on the node right now: null when the node could not be asked
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("isOnNode")]
+        public bool? IsOnNode { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("creationDateTime")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreationDateTime { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Accepts the value name (case-insensitive) or its integer equivalent: already-pinned (0), failed (1), imported (2).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal enum NodePinImportOutcome
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"already-pinned")]
+        AlreadyPinned = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"failed")]
+        Failed = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"imported")]
+        Imported = 2,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class NodePinsImportDto
+    {
+
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string Id { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("nodeId")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public string NodeId { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("state")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<NodePinsImportState>))]
+        public NodePinsImportState State { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("unpinImported")]
+        public bool UnpinImported { get; set; } = default!;
+
+        /// <summary>
+        /// The contents the import was asked for: empty when it takes every pin of the node
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("requestedReferences")]
+        [System.ComponentModel.DataAnnotations.Required]
+        public System.Collections.Generic.ICollection<string> RequestedReferences { get; set; } = new System.Collections.ObjectModel.Collection<string>();
+
+        [System.Text.Json.Serialization.JsonPropertyName("totalPins")]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public long? TotalPins { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("importedPins")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public long ImportedPins { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("skippedPins")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public long SkippedPins { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("failedPins")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public long FailedPins { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("unpinnedPins")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
+        public long UnpinnedPins { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("error")]
+        public string? Error { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("jobId")]
+        public string? JobId { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("creationDateTime")]
+        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
+        public System.DateTimeOffset CreationDateTime { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("startedDateTime")]
+        public System.DateTimeOffset? StartedDateTime { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("completedDateTime")]
+        public System.DateTimeOffset? CompletedDateTime { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal partial class NodePinsImportInput
+    {
+
+        /// <summary>
+        /// The contents to import, as swarm references: empty, or no body at all, for every pin of the node
+        /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("references")]
+        public System.Collections.Generic.ICollection<string> References { get; set; } = default!;
+
+        private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
+
+        [System.Text.Json.Serialization.JsonExtensionData]
+        public System.Collections.Generic.IDictionary<string, object> AdditionalProperties
+        {
+            get { return _additionalProperties ?? (_additionalProperties = new System.Collections.Generic.Dictionary<string, object>()); }
+            set { _additionalProperties = value; }
+        }
+
+    }
+
+    /// <summary>
+    /// Accepts the value name (case-insensitive) or its integer equivalent: completed (0), failed (1), pending (2), running (3).
+    /// </summary>
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    internal enum NodePinsImportState
+    {
+
+        [System.Runtime.Serialization.EnumMember(Value = @"completed")]
+        Completed = 0,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"failed")]
+        Failed = 1,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"pending")]
+        Pending = 2,
+
+        [System.Runtime.Serialization.EnumMember(Value = @"running")]
+        Running = 3,
+
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NJsonSchema", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
     internal partial class PostageBatchBucketDto
     {
 
@@ -4133,18 +4481,20 @@ namespace Etherna.SwarmSdk.Clients.Beehive
         public int BucketDepth { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("blockNumber")]
-        [System.ComponentModel.DataAnnotations.Required(AllowEmptyStrings = true)]
         [System.ComponentModel.DataAnnotations.RegularExpression(@"^-?(?:0|[1-9]\d*)$")]
-        public ulong BlockNumber { get; set; } = default!;
+        public ulong? BlockNumber { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("immutableFlag")]
         public bool ImmutableFlag { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("exists")]
-        public bool Exists { get; set; } = default!;
+        public bool? Exists { get; set; } = default!;
 
         [System.Text.Json.Serialization.JsonPropertyName("batchTTL")]
         public long BatchTTL { get; set; } = default!;
+
+        [System.Text.Json.Serialization.JsonPropertyName("error")]
+        public string? Error { get; set; } = default!;
 
         private System.Collections.Generic.IDictionary<string, object>? _additionalProperties;
 

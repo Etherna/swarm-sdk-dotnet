@@ -1,2684 +1,1963 @@
-{
-  "openapi": "3.1.1",
-  "info": {
-    "title": "Swarm API",
-    "version": "1.0.0"
-  },
-  "paths": {
-    "/batches": {
-      "get": {
-        "tags": [
-          "Batches"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GlobalPostageBatchesDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/bytes/{reference}": {
-      "get": {
-        "tags": [
-          "Bytes"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Level",
-            "in": "header",
-            "schema": {
-              "default": "paranoid",
-              "$ref": "#/components/schemas/RedundancyLevel"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Strategy",
-            "in": "header",
-            "schema": {
-              "default": "data",
-              "$ref": "#/components/schemas/RedundancyStrategy"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Fallback-Mode",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "206": {
-            "description": "Partial Content",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "416": {
-            "description": "Range Not Satisfiable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "head": {
-        "tags": [
-          "Bytes"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/bytes": {
-      "post": {
-        "tags": [
-          "Bytes"
-        ],
-        "parameters": [
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "Swarm-Compact-Level",
-            "in": "header",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint16",
-              "default": 0
-            }
-          },
-          {
-            "name": "Swarm-Encrypt",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Pin",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Level",
-            "in": "header",
-            "schema": {
-              "default": "none",
-              "$ref": "#/components/schemas/RedundancyLevel"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChunkReferenceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/bzz/{address}": {
-      "get": {
-        "tags": [
-          "Bzz"
-        ],
-        "parameters": [
-          {
-            "name": "address",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Level",
-            "in": "header",
-            "schema": {
-              "default": "paranoid",
-              "$ref": "#/components/schemas/RedundancyLevel"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Strategy",
-            "in": "header",
-            "schema": {
-              "default": "data",
-              "$ref": "#/components/schemas/RedundancyStrategy"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Fallback-Mode",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "206": {
-            "description": "Partial Content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "416": {
-            "description": "Range Not Satisfiable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "head": {
-        "tags": [
-          "Bzz"
-        ],
-        "parameters": [
-          {
-            "name": "address",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Level",
-            "in": "header",
-            "schema": {
-              "default": "paranoid",
-              "$ref": "#/components/schemas/RedundancyLevel"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Strategy",
-            "in": "header",
-            "schema": {
-              "default": "data",
-              "$ref": "#/components/schemas/RedundancyStrategy"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Fallback-Mode",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/bzz": {
-      "post": {
-        "tags": [
-          "Bzz"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "Swarm-Compact-Level",
-            "in": "header",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint16",
-              "default": 0
-            }
-          },
-          {
-            "name": "Swarm-Encrypt",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Pin",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Level",
-            "in": "header",
-            "schema": {
-              "default": "none",
-              "$ref": "#/components/schemas/RedundancyLevel"
-            }
-          },
-          {
-            "name": "Swarm-Collection",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Index-Document",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Swarm-Error-Document",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "application/x-tar": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "multipart/form-data": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            },
-            "*/*": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChunkReferenceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/chainstate": {
-      "get": {
-        "tags": [
-          "Chainstate"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChainStateDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/chunks/{hash}": {
-      "get": {
-        "tags": [
-          "Chunks"
-        ],
-        "parameters": [
-          {
-            "name": "hash",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmHash"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "binary/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "head": {
-        "tags": [
-          "Chunks"
-        ],
-        "parameters": [
-          {
-            "name": "hash",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmHash"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/chunks": {
-      "post": {
-        "tags": [
-          "Chunks"
-        ],
-        "parameters": [
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "Swarm-Postage-Stamp",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/PostageStamp"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChunkReferenceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/chunks/bulk-upload": {
-      "post": {
-        "tags": [
-          "Chunks"
-        ],
-        "description": "Deprecated: Use /ev1/chunks/bulk-upload instead",
-        "parameters": [
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
-      }
-    },
-    "/ev1/chunks/bulk-upload": {
-      "post": {
-        "tags": [
-          "Chunks"
-        ],
-        "parameters": [
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/feeds/{owner}/{topic}": {
-      "get": {
-        "tags": [
-          "Feeds"
-        ],
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/EthAddress"
-            }
-          },
-          {
-            "name": "topic",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmFeedTopic"
-            }
-          },
-          {
-            "name": "at",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int64"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint64"
-            }
-          },
-          {
-            "name": "afterLevel",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint8"
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "schema": {
-              "default": "sequence",
-              "$ref": "#/components/schemas/SwarmFeedType"
-            }
-          },
-          {
-            "name": "Swarm-Only-Root-Chunk",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Strategy",
-            "in": "header",
-            "schema": {
-              "default": "data",
-              "$ref": "#/components/schemas/RedundancyStrategy"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Fallback-Mode",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "206": {
-            "description": "Partial Content",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "416": {
-            "description": "Range Not Satisfiable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Feeds"
-        ],
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/EthAddress"
-            }
-          },
-          {
-            "name": "topic",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmFeedTopic"
-            }
-          },
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "Swarm-Compact-Level",
-            "in": "header",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint16",
-              "default": 0
-            }
-          },
-          {
-            "name": "Swarm-Pin",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "schema": {
-              "default": "sequence",
-              "$ref": "#/components/schemas/SwarmFeedType"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChunkReferenceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/health": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/node": {
-      "get": {
-        "tags": [
-          "Node"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NodeDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/pins": {
-      "get": {
-        "tags": [
-          "Pins"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeePinsDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/ev1/pins": {
-      "get": {
-        "tags": [
-          "Pins"
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "maximum": 2147483647,
-              "minimum": 0,
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32",
-              "default": 0
-            }
-          },
-          {
-            "name": "take",
-            "in": "query",
-            "schema": {
-              "maximum": 10000,
-              "minimum": 1,
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32",
-              "default": 500
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BeehivePinDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/pins/{reference}": {
-      "get": {
-        "tags": [
-          "Pins"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChunkReferenceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Pins"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "201": {
-            "description": "Created"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Pins"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/ev1/pins/{reference}": {
-      "get": {
-        "tags": [
-          "Pins"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeehivePinDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Pins"
-        ],
-        "parameters": [
-          {
-            "name": "reference",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/readiness": {
-      "get": {
-        "tags": [
-          "Readiness"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReadinessDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/soc/{owner}/{id}": {
-      "get": {
-        "tags": [
-          "Soc"
-        ],
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/EthAddress"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmSocIdentifier"
-            }
-          },
-          {
-            "name": "Swarm-Only-Root-Chunk",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Strategy",
-            "in": "header",
-            "schema": {
-              "default": "data",
-              "$ref": "#/components/schemas/RedundancyStrategy"
-            }
-          },
-          {
-            "name": "Swarm-Redundancy-Fallback-Mode",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "206": {
-            "description": "Partial Content",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "$ref": "#/components/schemas/Stream"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "416": {
-            "description": "Range Not Satisfiable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Soc"
-        ],
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/EthAddress"
-            }
-          },
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SwarmSocIdentifier"
-            }
-          },
-          {
-            "name": "sig",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Swarm-Postage-Batch-Id",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "Swarm-Postage-Stamp",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/PostageStamp"
-            }
-          },
-          {
-            "name": "Swarm-Pin",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "type": "string",
-                "format": "binary"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChunkReferenceDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/stamps": {
-      "get": {
-        "tags": [
-          "Stamps"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostageBatchStampListDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/stamps/{batchId}": {
-      "get": {
-        "tags": [
-          "Stamps"
-        ],
-        "parameters": [
-          {
-            "name": "batchId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostageBatchDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/stamps/{batchId}/buckets": {
-      "get": {
-        "tags": [
-          "Stamps"
-        ],
-        "parameters": [
-          {
-            "name": "batchId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostageBatchBucketsDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/stamps/dilute/{batchId}/{depth}": {
-      "patch": {
-        "tags": [
-          "Stamps"
-        ],
-        "parameters": [
-          {
-            "name": "batchId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "depth",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "Gas-Limit",
-            "in": "header",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint64"
-            }
-          },
-          {
-            "name": "Gas-Price",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/XDaiValue"
-            }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostageBatchIdWithTxHashDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/stamps/topup/{batchId}/{amount}": {
-      "patch": {
-        "tags": [
-          "Stamps"
-        ],
-        "parameters": [
-          {
-            "name": "batchId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/PostageBatchId"
-            }
-          },
-          {
-            "name": "amount",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/BzzValue"
-            }
-          },
-          {
-            "name": "Gas-Limit",
-            "in": "header",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint64"
-            }
-          },
-          {
-            "name": "Gas-Price",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/XDaiValue"
-            }
-          }
-        ],
-        "responses": {
-          "202": {
-            "description": "Accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostageBatchIdWithTxHashDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/stamps/{amount}/{depth}": {
-      "post": {
-        "tags": [
-          "Stamps"
-        ],
-        "parameters": [
-          {
-            "name": "amount",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/BzzValue"
-            }
-          },
-          {
-            "name": "depth",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "label",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Immutable",
-            "in": "header",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "name": "Gas-Limit",
-            "in": "header",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "uint64"
-            }
-          },
-          {
-            "name": "Gas-Price",
-            "in": "header",
-            "schema": {
-              "$ref": "#/components/schemas/XDaiValue"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PostageBatchIdWithTxHashDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too Many Requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BeeErrorDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "BeeErrorDto": {
-        "required": [
-          "code",
-          "message"
-        ],
-        "type": "object",
-        "properties": {
-          "code": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "message": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "BeehivePinDto": {
-        "required": [
-          "reference",
-          "creationTime",
-          "processed",
-          "succeeded",
-          "missingChunks",
-          "pinnedChunks"
-        ],
-        "type": "object",
-        "properties": {
-          "reference": {
-            "$ref": "#/components/schemas/SwarmReference"
-          },
-          "creationTime": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "processed": {
-            "type": "boolean"
-          },
-          "succeeded": {
-            "type": "boolean"
-          },
-          "missingChunks": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SwarmHash"
-            }
-          },
-          "pinnedChunks": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int64"
-          }
-        }
-      },
-      "BeeNodeDto": {
-        "required": [
-          "id",
-          "connectionString",
-          "errors",
-          "ethereumAddress",
-          "heartbeatTimeStamp",
-          "isAlive",
-          "isBatchCreationEnabled",
-          "overlayAddress",
-          "pssPublicKey",
-          "publicKey"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "connectionString": {
-            "type": "string",
-            "format": "uri"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "ethereumAddress": {
-            "$ref": "#/components/schemas/EthAddress"
-          },
-          "heartbeatTimeStamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "isAlive": {
-            "type": "boolean"
-          },
-          "isBatchCreationEnabled": {
-            "type": "boolean"
-          },
-          "overlayAddress": {
-            "$ref": "#/components/schemas/SwarmOverlayAddress"
-          },
-          "pssPublicKey": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "publicKey": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "BeeNodeInput": {
-        "required": [
-          "connectionString"
-        ],
-        "type": "object",
-        "properties": {
-          "connectionString": {
-            "type": "string"
-          },
-          "enableBatchCreation": {
-            "type": "boolean"
-          }
-        }
-      },
-      "BeePinsDto": {
-        "required": [
-          "references"
-        ],
-        "type": "object",
-        "properties": {
-          "references": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SwarmReference"
-            }
-          }
-        }
-      },
-      "BzzValue": {
-        "type": "string"
-      },
-      "ChainStateDto": {
-        "required": [
-          "chainTip",
-          "block",
-          "totalAmount",
-          "currentPrice",
-          "timeStamp"
-        ],
-        "type": "object",
-        "properties": {
-          "chainTip": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint64"
-          },
-          "block": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint64"
-          },
-          "totalAmount": {
-            "$ref": "#/components/schemas/BzzValue"
-          },
-          "currentPrice": {
-            "$ref": "#/components/schemas/BzzValue"
-          },
-          "timeStamp": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "ChunkReferenceDto": {
-        "required": [
-          "reference"
-        ],
-        "type": "object",
-        "properties": {
-          "reference": {
-            "$ref": "#/components/schemas/SwarmReference"
-          }
-        }
-      },
-      "EthAddress": {
-        "maxLength": 42,
-        "minLength": 40,
-        "pattern": "^(0x)?[a-fA-F0-9]{40}$",
-        "type": "string"
-      },
-      "EthTxHash": {
-        "maxLength": 64,
-        "minLength": 64,
-        "pattern": "^[a-fA-F0-9]{64}$",
-        "type": "string"
-      },
-      "GlobalPostageBatchDto": {
-        "required": [
-          "batchID",
-          "value",
-          "depth",
-          "bucketDepth"
-        ],
-        "type": "object",
-        "properties": {
-          "batchID": {
-            "$ref": "#/components/schemas/PostageBatchId"
-          },
-          "value": {
-            "$ref": "#/components/schemas/BzzValue"
-          },
-          "start": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint64"
-          },
-          "owner": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "depth": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "bucketDepth": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "immutable": {
-            "type": "boolean"
-          },
-          "batchTTL": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "GlobalPostageBatchesDto": {
-        "type": "object",
-        "properties": {
-          "batches": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/GlobalPostageBatchDto"
-            }
-          }
-        }
-      },
-      "HealthDto": {
-        "required": [
-          "status",
-          "version",
-          "apiVersion"
-        ],
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "apiVersion": {
-            "type": "string"
-          }
-        }
-      },
-      "NodeDto": {
-        "required": [
-          "beeMode",
-          "chequebookEnabled",
-          "swapEnabled"
-        ],
-        "type": "object",
-        "properties": {
-          "beeMode": {
-            "type": "string"
-          },
-          "chequebookEnabled": {
-            "type": "boolean"
-          },
-          "swapEnabled": {
-            "type": "boolean"
-          }
-        }
-      },
-      "PostageBatchBucketDto": {
-        "required": [
-          "bucketID",
-          "collisions"
-        ],
-        "type": "object",
-        "properties": {
-          "bucketID": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "collisions": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint32"
-          }
-        }
-      },
-      "PostageBatchBucketsDto": {
-        "required": [
-          "depth",
-          "bucketDepth",
-          "buckets"
-        ],
-        "type": "object",
-        "properties": {
-          "depth": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "bucketDepth": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "bucketUpperBound": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint32"
-          },
-          "buckets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PostageBatchBucketDto"
-            }
-          }
-        }
-      },
-      "PostageBatchDto": {
-        "required": [
-          "batchID",
-          "utilization",
-          "usable",
-          "label",
-          "depth",
-          "amount",
-          "bucketDepth",
-          "blockNumber",
-          "immutableFlag",
-          "exists",
-          "batchTTL"
-        ],
-        "type": "object",
-        "properties": {
-          "batchID": {
-            "$ref": "#/components/schemas/PostageBatchId"
-          },
-          "utilization": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint32"
-          },
-          "usable": {
-            "type": "boolean"
-          },
-          "label": {
-            "type": "string"
-          },
-          "depth": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "amount": {
-            "$ref": "#/components/schemas/BzzValue"
-          },
-          "bucketDepth": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "blockNumber": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "uint64"
-          },
-          "immutableFlag": {
-            "type": "boolean"
-          },
-          "exists": {
-            "type": "boolean"
-          },
-          "batchTTL": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "PostageBatchId": {
-        "maxLength": 64,
-        "minLength": 64,
-        "pattern": "^[a-fA-F0-9]{64}$",
-        "type": "string"
-      },
-      "PostageBatchIdWithTxHashDto": {
-        "required": [
-          "batchID",
-          "txHash"
-        ],
-        "type": "object",
-        "properties": {
-          "batchID": {
-            "$ref": "#/components/schemas/PostageBatchId"
-          },
-          "txHash": {
-            "$ref": "#/components/schemas/EthTxHash"
-          }
-        }
-      },
-      "PostageBatchStampListDto": {
-        "type": "object",
-        "properties": {
-          "stamps": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/PostageBatchDto"
-            }
-          }
-        }
-      },
-      "PostageStamp": {
-        "maxLength": 226,
-        "minLength": 226,
-        "pattern": "^[a-fA-F0-9]{226}$",
-        "type": "string"
-      },
-      "ReadinessDto": {
-        "required": [
-          "status",
-          "version",
-          "apiVersion"
-        ],
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "apiVersion": {
-            "type": "string"
-          }
-        }
-      },
-      "RedundancyLevel": {
-        "enum": [
-          "none",
-          "medium",
-          "strong",
-          "insane",
-          "paranoid"
-        ],
-        "type": "string",
-        "description": "Accepts the value name (case-insensitive) or its integer equivalent: none (0), medium (1), strong (2), insane (3), paranoid (4)."
-      },
-      "RedundancyStrategy": {
-        "enum": [
-          "none",
-          "data",
-          "prox",
-          "race"
-        ],
-        "type": "string",
-        "description": "Accepts the value name (case-insensitive) or its integer equivalent: none (0), data (1), prox (2), race (3)."
-      },
-      "Stream": {
-        "type": "string",
-        "format": "binary"
-      },
-      "SwarmFeedTopic": {
-        "maxLength": 64,
-        "minLength": 64,
-        "pattern": "^[a-fA-F0-9]{64}$",
-        "type": "string"
-      },
-      "SwarmFeedType": {
-        "enum": [
-          "epoch",
-          "sequence"
-        ],
-        "type": "string",
-        "description": "Accepts the value name (case-insensitive) or its integer equivalent: epoch (0), sequence (1)."
-      },
-      "SwarmHash": {
-        "maxLength": 64,
-        "minLength": 64,
-        "pattern": "^[a-fA-F0-9]{64}$",
-        "type": "string"
-      },
-      "SwarmOverlayAddress": {
-        "maxLength": 64,
-        "minLength": 64,
-        "pattern": "^[a-fA-F0-9]{64}$",
-        "type": "string"
-      },
-      "SwarmReference": {
-        "maxLength": 128,
-        "minLength": 64,
-        "pattern": "^([a-fA-F0-9]{64}|[a-fA-F0-9]{128})$",
-        "type": "string"
-      },
-      "SwarmSocIdentifier": {
-        "maxLength": 64,
-        "minLength": 64,
-        "pattern": "^[a-fA-F0-9]{64}$",
-        "type": "string"
-      },
-      "XDaiValue": {
-        "type": "string"
-      }
-    }
-  }
-}
+openapi: 3.1.1
+info:
+  title: Swarm API
+  version: 1.0.0
+paths:
+  /batches:
+    get:
+      tags:
+        - Batches
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GlobalPostageBatchesDto"
+  /bytes/{reference}:
+    get:
+      tags:
+        - Bytes
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+        - name: Swarm-Redundancy-Level
+          in: header
+          schema:
+            default: paranoid
+            $ref: "#/components/schemas/RedundancyLevel"
+        - name: Swarm-Redundancy-Strategy
+          in: header
+          schema:
+            default: data
+            $ref: "#/components/schemas/RedundancyStrategy"
+        - name: Swarm-Redundancy-Fallback-Mode
+          in: header
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "206":
+          description: Partial Content
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "416":
+          description: Range Not Satisfiable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    head:
+      tags:
+        - Bytes
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /bytes:
+    post:
+      tags:
+        - Bytes
+      parameters:
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: Swarm-Compact-Level
+          in: header
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint16
+            default: 0
+        - name: Swarm-Encrypt
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Pin
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Redundancy-Level
+          in: header
+          schema:
+            default: none
+            $ref: "#/components/schemas/RedundancyLevel"
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChunkReferenceDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /bzz/{address}:
+    get:
+      tags:
+        - Bzz
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Swarm-Redundancy-Level
+          in: header
+          schema:
+            default: paranoid
+            $ref: "#/components/schemas/RedundancyLevel"
+        - name: Swarm-Redundancy-Strategy
+          in: header
+          schema:
+            default: data
+            $ref: "#/components/schemas/RedundancyStrategy"
+        - name: Swarm-Redundancy-Fallback-Mode
+          in: header
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "206":
+          description: Partial Content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "416":
+          description: Range Not Satisfiable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    head:
+      tags:
+        - Bzz
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: Swarm-Redundancy-Level
+          in: header
+          schema:
+            default: paranoid
+            $ref: "#/components/schemas/RedundancyLevel"
+        - name: Swarm-Redundancy-Strategy
+          in: header
+          schema:
+            default: data
+            $ref: "#/components/schemas/RedundancyStrategy"
+        - name: Swarm-Redundancy-Fallback-Mode
+          in: header
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /bzz:
+    post:
+      tags:
+        - Bzz
+      parameters:
+        - name: name
+          in: query
+          schema:
+            type: string
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: Swarm-Compact-Level
+          in: header
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint16
+            default: 0
+        - name: Swarm-Encrypt
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Pin
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Redundancy-Level
+          in: header
+          schema:
+            default: none
+            $ref: "#/components/schemas/RedundancyLevel"
+        - name: Swarm-Collection
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Index-Document
+          in: header
+          schema:
+            type: string
+        - name: Swarm-Error-Document
+          in: header
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+          application/x-tar:
+            schema:
+              type: string
+              format: binary
+          multipart/form-data:
+            schema:
+              type: string
+              format: binary
+          "*/*":
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChunkReferenceDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /chainstate:
+    get:
+      tags:
+        - Chainstate
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChainStateDto"
+  /chunks/{hash}:
+    get:
+      tags:
+        - Chunks
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmHash"
+      responses:
+        "200":
+          description: OK
+          content:
+            binary/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    head:
+      tags:
+        - Chunks
+      parameters:
+        - name: hash
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmHash"
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /chunks:
+    post:
+      tags:
+        - Chunks
+      parameters:
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: Swarm-Postage-Stamp
+          in: header
+          schema:
+            $ref: "#/components/schemas/PostageStamp"
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChunkReferenceDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /chunks/bulk-upload:
+    post:
+      tags:
+        - Chunks
+      description: "Deprecated: Use /ev1/chunks/bulk-upload instead"
+      parameters:
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+      deprecated: true
+  /ev1/chunks/bulk-upload:
+    post:
+      tags:
+        - Chunks
+      parameters:
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /feeds/{owner}/{topic}:
+    get:
+      tags:
+        - Feeds
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EthAddress"
+        - name: topic
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmFeedTopic"
+        - name: at
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int64
+        - name: after
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint64
+        - name: afterLevel
+          in: query
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint8
+        - name: type
+          in: query
+          schema:
+            default: sequence
+            $ref: "#/components/schemas/SwarmFeedType"
+        - name: Swarm-Only-Root-Chunk
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Redundancy-Strategy
+          in: header
+          schema:
+            default: data
+            $ref: "#/components/schemas/RedundancyStrategy"
+        - name: Swarm-Redundancy-Fallback-Mode
+          in: header
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "206":
+          description: Partial Content
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "416":
+          description: Range Not Satisfiable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    post:
+      tags:
+        - Feeds
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EthAddress"
+        - name: topic
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmFeedTopic"
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: Swarm-Compact-Level
+          in: header
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint16
+            default: 0
+        - name: Swarm-Pin
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: type
+          in: query
+          schema:
+            default: sequence
+            $ref: "#/components/schemas/SwarmFeedType"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChunkReferenceDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /health:
+    get:
+      tags:
+        - Health
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthDto"
+  /node:
+    get:
+      tags:
+        - Node
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeDto"
+  /pins:
+    get:
+      tags:
+        - Pins
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeePinsDto"
+  /ev1/pins:
+    get:
+      tags:
+        - Pins
+      parameters:
+        - name: page
+          in: query
+          schema:
+            maximum: 2147483647
+            minimum: 0
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+            default: 0
+        - name: take
+          in: query
+          schema:
+            maximum: 10000
+            minimum: 1
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+            default: 500
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BeehivePinDto"
+  /pins/{reference}:
+    get:
+      tags:
+        - Pins
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChunkReferenceDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    post:
+      tags:
+        - Pins
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+      responses:
+        "200":
+          description: OK
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    delete:
+      tags:
+        - Pins
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /ev1/pins/{reference}:
+    get:
+      tags:
+        - Pins
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeehivePinDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    post:
+      tags:
+        - Pins
+      parameters:
+        - name: reference
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmReference"
+      responses:
+        "200":
+          description: OK
+  /readiness:
+    get:
+      tags:
+        - Readiness
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessDto"
+  /soc/{owner}/{id}:
+    get:
+      tags:
+        - Soc
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EthAddress"
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmSocIdentifier"
+        - name: Swarm-Only-Root-Chunk
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Swarm-Redundancy-Strategy
+          in: header
+          schema:
+            default: data
+            $ref: "#/components/schemas/RedundancyStrategy"
+        - name: Swarm-Redundancy-Fallback-Mode
+          in: header
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "206":
+          description: Partial Content
+          content:
+            application/octet-stream:
+              schema:
+                $ref: "#/components/schemas/Stream"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "416":
+          description: Range Not Satisfiable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+    post:
+      tags:
+        - Soc
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/EthAddress"
+        - name: id
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/SwarmSocIdentifier"
+        - name: sig
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: Swarm-Postage-Batch-Id
+          in: header
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: Swarm-Postage-Stamp
+          in: header
+          schema:
+            $ref: "#/components/schemas/PostageStamp"
+        - name: Swarm-Pin
+          in: header
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChunkReferenceDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "422":
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /stamps:
+    get:
+      tags:
+        - Stamps
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostageBatchStampListDto"
+  /stamps/{batchId}:
+    get:
+      tags:
+        - Stamps
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostageBatchDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /stamps/{batchId}/buckets:
+    get:
+      tags:
+        - Stamps
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostageBatchBucketsDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /stamps/dilute/{batchId}/{depth}:
+    patch:
+      tags:
+        - Stamps
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: depth
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+        - name: Gas-Limit
+          in: header
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint64
+        - name: Gas-Price
+          in: header
+          schema:
+            $ref: "#/components/schemas/XDaiValue"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostageBatchIdWithTxHashDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "429":
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /stamps/topup/{batchId}/{amount}:
+    patch:
+      tags:
+        - Stamps
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/PostageBatchId"
+        - name: amount
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/BzzValue"
+        - name: Gas-Limit
+          in: header
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint64
+        - name: Gas-Price
+          in: header
+          schema:
+            $ref: "#/components/schemas/XDaiValue"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostageBatchIdWithTxHashDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "402":
+          description: Payment Required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "429":
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+  /stamps/{amount}/{depth}:
+    post:
+      tags:
+        - Stamps
+      parameters:
+        - name: amount
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/BzzValue"
+        - name: depth
+          in: path
+          required: true
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: int32
+        - name: label
+          in: query
+          schema:
+            type: string
+        - name: Immutable
+          in: header
+          schema:
+            type: boolean
+            default: false
+        - name: Gas-Limit
+          in: header
+          schema:
+            pattern: ^-?(?:0|[1-9]\d*)$
+            type:
+              - integer
+              - string
+            format: uint64
+        - name: Gas-Price
+          in: header
+          schema:
+            $ref: "#/components/schemas/XDaiValue"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostageBatchIdWithTxHashDto"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+        "429":
+          description: Too Many Requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BeeErrorDto"
+components:
+  schemas:
+    BeeErrorDto:
+      required:
+        - code
+        - message
+      type: object
+      properties:
+        code:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        message:
+          type:
+            - "null"
+            - string
+    BeehivePinDto:
+      required:
+        - reference
+        - creationTime
+        - processed
+        - succeeded
+        - missingChunks
+        - pinnedChunks
+      type: object
+      properties:
+        reference:
+          $ref: "#/components/schemas/SwarmReference"
+        creationTime:
+          type: integer
+          format: int64
+        processed:
+          type: boolean
+        succeeded:
+          type: boolean
+        missingChunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwarmHash"
+        pinnedChunks:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int64
+    BeeNodeDto:
+      required:
+        - id
+        - connectionString
+        - errors
+        - ethereumAddress
+        - heartbeatTimeStamp
+        - isAlive
+        - isBatchCreationEnabled
+        - overlayAddress
+        - pssPublicKey
+        - publicKey
+      type: object
+      properties:
+        id:
+          type: string
+        connectionString:
+          type: string
+          format: uri
+        errors:
+          type: array
+          items:
+            type: string
+        ethereumAddress:
+          $ref: "#/components/schemas/EthAddress"
+        heartbeatTimeStamp:
+          type: string
+          format: date-time
+        isAlive:
+          type: boolean
+        isBatchCreationEnabled:
+          type: boolean
+        overlayAddress:
+          $ref: "#/components/schemas/SwarmOverlayAddress"
+        pssPublicKey:
+          type:
+            - "null"
+            - string
+        publicKey:
+          type:
+            - "null"
+            - string
+    BeeNodeInput:
+      required:
+        - connectionString
+      type: object
+      properties:
+        connectionString:
+          type: string
+        enableBatchCreation:
+          type: boolean
+    BeePinsDto:
+      required:
+        - references
+      type: object
+      properties:
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwarmReference"
+    BzzValue:
+      type: string
+    ChainStateDto:
+      required:
+        - chainTip
+        - block
+        - totalAmount
+        - currentPrice
+        - timeStamp
+      type: object
+      properties:
+        chainTip:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: uint64
+        block:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: uint64
+        totalAmount:
+          $ref: "#/components/schemas/BzzValue"
+        currentPrice:
+          $ref: "#/components/schemas/BzzValue"
+        timeStamp:
+          type: integer
+          format: int64
+    ChunkReferenceDto:
+      required:
+        - reference
+      type: object
+      properties:
+        reference:
+          $ref: "#/components/schemas/SwarmReference"
+    EthAddress:
+      maxLength: 42
+      minLength: 40
+      pattern: ^(0x)?[a-fA-F0-9]{40}$
+      type: string
+    EthTxHash:
+      maxLength: 64
+      minLength: 64
+      pattern: ^[a-fA-F0-9]{64}$
+      type: string
+    GlobalPostageBatchDto:
+      required:
+        - batchID
+        - value
+        - depth
+        - bucketDepth
+      type: object
+      properties:
+        batchID:
+          $ref: "#/components/schemas/PostageBatchId"
+        value:
+          $ref: "#/components/schemas/BzzValue"
+        start:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: uint64
+        owner:
+          type:
+            - "null"
+            - string
+        depth:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: int32
+        bucketDepth:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        immutable:
+          type: boolean
+        batchTTL:
+          type: integer
+          format: int64
+    GlobalPostageBatchesDto:
+      type: object
+      properties:
+        batches:
+          type:
+            - "null"
+            - array
+          items:
+            $ref: "#/components/schemas/GlobalPostageBatchDto"
+    HealthDto:
+      required:
+        - status
+        - version
+        - apiVersion
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        apiVersion:
+          type: string
+    NodeDto:
+      required:
+        - beeMode
+        - chequebookEnabled
+        - swapEnabled
+      type: object
+      properties:
+        beeMode:
+          type: string
+        chequebookEnabled:
+          type: boolean
+        swapEnabled:
+          type: boolean
+    NodePinImportDto:
+      required:
+        - id
+        - importId
+        - nodeId
+        - reference
+        - outcome
+        - pinnedChunks
+        - missingChunks
+        - invalidChunks
+        - failureReason
+        - unpinnedByImport
+        - unpinFailureReason
+        - isOnNode
+        - creationDateTime
+      type: object
+      properties:
+        id:
+          type: string
+        importId:
+          type: string
+        nodeId:
+          type: string
+        reference:
+          $ref: "#/components/schemas/SwarmReference"
+        outcome:
+          $ref: "#/components/schemas/NodePinImportOutcome"
+        pinnedChunks:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int64
+        missingChunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwarmHash"
+        invalidChunks:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwarmHash"
+        failureReason:
+          type:
+            - "null"
+            - string
+        unpinnedByImport:
+          type: boolean
+        unpinFailureReason:
+          type:
+            - "null"
+            - string
+        isOnNode:
+          type:
+            - "null"
+            - boolean
+          description: "Whether the content is pinned on the node right now: null when the
+            node could not be asked"
+        creationDateTime:
+          type: string
+          format: date-time
+    NodePinImportOutcome:
+      enum:
+        - already-pinned
+        - failed
+        - imported
+      type: string
+      description: "Accepts the value name (case-insensitive) or its integer
+        equivalent: already-pinned (0), failed (1), imported (2)."
+    NodePinsImportDto:
+      required:
+        - id
+        - nodeId
+        - state
+        - unpinImported
+        - requestedReferences
+        - totalPins
+        - importedPins
+        - skippedPins
+        - failedPins
+        - unpinnedPins
+        - error
+        - jobId
+        - creationDateTime
+        - startedDateTime
+        - completedDateTime
+      type: object
+      properties:
+        id:
+          type: string
+        nodeId:
+          type: string
+        state:
+          $ref: "#/components/schemas/NodePinsImportState"
+        unpinImported:
+          type: boolean
+        requestedReferences:
+          type: array
+          items:
+            $ref: "#/components/schemas/SwarmReference"
+          description: "The contents the import was asked for: empty when it takes every
+            pin of the node"
+        totalPins:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: int64
+        importedPins:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int64
+        skippedPins:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int64
+        failedPins:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int64
+        unpinnedPins:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int64
+        error:
+          type:
+            - "null"
+            - string
+        jobId:
+          type:
+            - "null"
+            - string
+        creationDateTime:
+          type: string
+          format: date-time
+        startedDateTime:
+          type:
+            - "null"
+            - string
+          format: date-time
+        completedDateTime:
+          type:
+            - "null"
+            - string
+          format: date-time
+    NodePinsImportInput:
+      type: object
+      properties:
+        references:
+          type: array
+          items:
+            type: string
+          description: "The contents to import, as swarm references: empty, or no body at
+            all, for every pin of the node"
+    NodePinsImportState:
+      enum:
+        - completed
+        - failed
+        - pending
+        - running
+      type: string
+      description: "Accepts the value name (case-insensitive) or its integer
+        equivalent: completed (0), failed (1), pending (2), running (3)."
+    PostageBatchBucketDto:
+      required:
+        - bucketID
+        - collisions
+      type: object
+      properties:
+        bucketID:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        collisions:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: uint32
+    PostageBatchBucketsDto:
+      required:
+        - depth
+        - bucketDepth
+        - buckets
+      type: object
+      properties:
+        depth:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        bucketDepth:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        bucketUpperBound:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: uint32
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostageBatchBucketDto"
+    PostageBatchDto:
+      required:
+        - batchID
+        - utilization
+        - usable
+        - label
+        - depth
+        - amount
+        - bucketDepth
+        - blockNumber
+        - immutableFlag
+        - exists
+        - batchTTL
+        - error
+      type: object
+      properties:
+        batchID:
+          $ref: "#/components/schemas/PostageBatchId"
+        utilization:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: uint32
+        usable:
+          type: boolean
+        label:
+          type: string
+        depth:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: int32
+        amount:
+          $ref: "#/components/schemas/BzzValue"
+        bucketDepth:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - integer
+            - string
+          format: int32
+        blockNumber:
+          pattern: ^-?(?:0|[1-9]\d*)$
+          type:
+            - "null"
+            - integer
+            - string
+          format: uint64
+        immutableFlag:
+          type: boolean
+        exists:
+          type:
+            - "null"
+            - boolean
+        batchTTL:
+          type: integer
+          format: int64
+        error:
+          type:
+            - "null"
+            - string
+    PostageBatchId:
+      maxLength: 64
+      minLength: 64
+      pattern: ^[a-fA-F0-9]{64}$
+      type: string
+    PostageBatchIdWithTxHashDto:
+      required:
+        - batchID
+        - txHash
+      type: object
+      properties:
+        batchID:
+          $ref: "#/components/schemas/PostageBatchId"
+        txHash:
+          $ref: "#/components/schemas/EthTxHash"
+    PostageBatchStampListDto:
+      type: object
+      properties:
+        stamps:
+          type:
+            - "null"
+            - array
+          items:
+            $ref: "#/components/schemas/PostageBatchDto"
+    PostageStamp:
+      maxLength: 226
+      minLength: 226
+      pattern: ^[a-fA-F0-9]{226}$
+      type: string
+    ReadinessDto:
+      required:
+        - status
+        - version
+        - apiVersion
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        apiVersion:
+          type: string
+    RedundancyLevel:
+      enum:
+        - none
+        - medium
+        - strong
+        - insane
+        - paranoid
+      type: string
+      description: "Accepts the value name (case-insensitive) or its integer
+        equivalent: none (0), medium (1), strong (2), insane (3), paranoid (4)."
+    RedundancyStrategy:
+      enum:
+        - none
+        - data
+        - prox
+        - race
+      type: string
+      description: "Accepts the value name (case-insensitive) or its integer
+        equivalent: none (0), data (1), prox (2), race (3)."
+    Stream:
+      type: string
+      format: binary
+    SwarmFeedTopic:
+      maxLength: 64
+      minLength: 64
+      pattern: ^[a-fA-F0-9]{64}$
+      type: string
+    SwarmFeedType:
+      enum:
+        - epoch
+        - sequence
+      type: string
+      description: "Accepts the value name (case-insensitive) or its integer
+        equivalent: epoch (0), sequence (1)."
+    SwarmHash:
+      maxLength: 64
+      minLength: 64
+      pattern: ^[a-fA-F0-9]{64}$
+      type: string
+    SwarmOverlayAddress:
+      maxLength: 64
+      minLength: 64
+      pattern: ^[a-fA-F0-9]{64}$
+      type: string
+    SwarmReference:
+      maxLength: 128
+      minLength: 64
+      pattern: ^([a-fA-F0-9]{64}|[a-fA-F0-9]{128})$
+      type: string
+    SwarmSocIdentifier:
+      maxLength: 64
+      minLength: 64
+      pattern: ^[a-fA-F0-9]{64}$
+      type: string
+    XDaiValue:
+      type: string
