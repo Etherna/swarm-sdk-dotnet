@@ -95,11 +95,35 @@ namespace Etherna.SwarmSdk.Services
         }
 
         [Fact]
-        public async Task ToleratesTransientNotFoundAndGatewayTimeoutResponses()
+        public async Task ThrowsItsOwnTimeoutWhenEveryReadTimesOut()
         {
             // Setup.
-            // A freshly bought batch may not be retrievable yet (404) or the node may briefly time out (504):
-            // those transient responses must not abort the wait.
+            var fakeTimeProvider = new FakeTimeProvider();
+            var timeout = TimeSpan.FromSeconds(20);
+            var callCount = 0;
+            Task<PostageBatch> GetBatch(PostageBatchId id, CancellationToken _)
+            {
+                callCount++;
+                throw new TimeoutException("The node did not answer");
+            }
+
+            // Run.
+            var waitTask = PostageBatchUsablePoller.WaitUntilUsableAsync(
+                PostageBatchId.Zero, GetBatch, timeout, PollInterval, fakeTimeProvider);
+            await DriveVirtualClockUntilCompletedAsync(fakeTimeProvider, waitTask, PollInterval);
+            var thrown = await Assert.ThrowsAsync<TimeoutException>(() => waitTask);
+
+            // Assert.
+            Assert.StartsWith("Postage batch", thrown.Message, StringComparison.Ordinal);
+            Assert.True(callCount > 1);
+        }
+
+        [Fact]
+        public async Task ToleratesTransientNotFoundGatewayTimeoutAndReadTimeoutResponses()
+        {
+            // Setup.
+            // A freshly bought batch may not be retrievable yet (404), the node may briefly time out (504), or a
+            // read may miss its bound (TimeoutException): those transient answers must not abort the wait.
             var fakeTimeProvider = new FakeTimeProvider();
             var callCount = 0;
             Task<PostageBatch> GetBatch(PostageBatchId id, CancellationToken _)
@@ -109,6 +133,7 @@ namespace Etherna.SwarmSdk.Services
                 {
                     1 => throw ApiException(404),
                     2 => throw ApiException(504),
+                    3 => throw new TimeoutException("The node did not answer"),
                     _ => Task.FromResult(Batch(id, isUsable: true))
                 };
             }
@@ -121,7 +146,7 @@ namespace Etherna.SwarmSdk.Services
 
             // Assert.
             Assert.True(result.IsUsable);
-            Assert.Equal(3, callCount);
+            Assert.Equal(4, callCount);
         }
 
         [Fact]

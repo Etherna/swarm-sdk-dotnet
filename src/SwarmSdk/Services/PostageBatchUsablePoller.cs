@@ -39,7 +39,8 @@ namespace Etherna.SwarmSdk.Services
         /// <remarks>
         /// A postage batch is not immediately usable after being bought: the creation transaction must be confirmed
         /// on chain first. Transient "not found yet" (404) and gateway timeout (504) responses that can occur right
-        /// after purchase are tolerated and treated as "not usable yet".
+        /// after purchase are tolerated and treated as "not usable yet", and so is a read the node does not answer
+        /// within its bound (a <see cref="TimeoutException"/> of the delegate).
         /// </remarks>
         /// <param name="batchId">ID of the postage batch to wait for.</param>
         /// <param name="getPostageBatch">Delegate retrieving the current batch state by ID (e.g. <c>swarmClient.GetPostageBatchAsync</c>).</param>
@@ -72,14 +73,17 @@ namespace Etherna.SwarmSdk.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // A freshly bought batch may not be retrievable yet, or the node may briefly time out:
-                // tolerate those transient responses and keep polling until the batch becomes usable.
+                // A freshly bought batch may not be retrievable yet, or the node may briefly time out, as a gateway
+                // timeout or as a read that misses its bound: tolerate those transient answers and keep polling
+                // until the batch becomes usable.
                 PostageBatch? batch = null;
                 try
                 {
                     batch = await getPostageBatch(batchId, cancellationToken).ConfigureAwait(false);
                 }
                 catch (SwarmSdkApiException e) when (e.StatusCode is 404 or 504)
+                { }
+                catch (TimeoutException)
                 { }
 
                 if (batch is { IsUsable: true })

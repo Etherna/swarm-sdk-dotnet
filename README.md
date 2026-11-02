@@ -53,7 +53,9 @@ data from Swarm, compute Swarm addresses, work with feeds and postage stamps, an
 
 - A high-level `SwarmClient` over the Bee HTTP API: upload/download bytes, files and directories, manage
   pins, tags, postage batches, chequebook and peers, query node health/info, plus chunk-stream uploads
-  over WebSocket. A Beehive-compatible API mode is also available.
+  over WebSocket. A Beehive-compatible API mode is also available. Every call is bounded by the class of
+  its operation (`SwarmClientTimeouts`), and a node that does not answer within the bound surfaces as
+  `SwarmClientTimeoutException`.
 
 ## Packages
 

@@ -33,7 +33,7 @@ Three source projects plus two test projects:
   - `Manifest/` — Mantaray manifest reading/writing and path resolution.
   - `Services/` — higher-level orchestration (`ChunkService`, `FeedService`) exposed via `I…Service` interfaces.
   - `Extensions/`, `JsonConverters/`, `TypeConverters/`, `Exceptions/` — supporting code.
-- **`src/SwarmSdk.Client`** (`SwarmSdk.Client`) — Client to talk to a Bee node. `SwarmClient` / `ISwarmClient` is the public entry point; `Clients/Bee/BeeGeneratedClient.cs` and `Clients/Beehive/BeehiveGeneratedClient.cs` are **NSwag-generated** wrappers over the node's HTTP API. Also `Models/` (request/response DTOs like `FileResponse`), `Stores/` (chunk stores backed by the node), and `Tools/`.
+- **`src/SwarmSdk.Client`** (`SwarmSdk.Client`) — Client to talk to a Bee node. `SwarmClient` / `ISwarmClient` is the public entry point: every call to the node is bounded by the class of its operation (`SwarmClientTimeouts`, from 5 seconds for a read of the node's own state to 10 minutes for a transaction wait or a content transfer, overridable through the constructor; an `HttpClient` passed in needs a timeout no shorter than every bound, or the constructor throws `ArgumentException`, and the one the client builds itself takes the longest bound), and a call the node does not complete within its bound throws `SwarmClientTimeoutException` (`Exceptions/`, a `TimeoutException`), while a cancellation requested by the caller propagates as it is; `Clients/Bee/BeeGeneratedClient.cs` and `Clients/Beehive/BeehiveGeneratedClient.cs` are **NSwag-generated** wrappers over the node's HTTP API. Also `Models/` (request/response DTOs like `FileResponse`), `Stores/` (chunk stores backed by the node), and `Tools/`.
 - **`src/SwarmSdk.Wasm`** — WebAssembly host exposing SDK utilities to JS. `IsAotCompatible=true`, not packable, not part of the public NuGet surface. Keep it AOT-safe.
 - **`test/SwarmSdk.UnitTest`** — xUnit + Moq unit tests of `SwarmSdk`, mirroring its folder layout.
 - **`test/SwarmSdk.Client.UnitTest`** — xUnit + Moq unit tests of `SwarmSdk.Client`, mirroring its folder layout, with `ISwarmClient` mocked where the node would be.
@@ -45,7 +45,7 @@ Key cross-cutting points:
 - **Root namespace is `Etherna.SwarmSdk` for every project**, so `src/SwarmSdk/Stores/Foo.cs` is `namespace Etherna.SwarmSdk.Stores`, and `src/SwarmSdk.Client/Stores/Bar.cs` is `namespace Etherna.SwarmSdk.Stores` too (the project's `.Client` suffix is dropped, not part of the namespace). The namespace mirrors the folder path *under* the root namespace.
 - **`ConfigureAwait(false)` is required** on every awaited call in library code (`SwarmSdk`, `SwarmSdk.Client`) — these are libraries with no synchronization context to preserve.
 - **Generated clients are not hand-maintained.** `Clients/Bee/BeeGeneratedClient.cs` and `Clients/Beehive/BeehiveGeneratedClient.cs` are produced by NSwag from the Bee OpenAPI spec; prefer regenerating over editing, and keep manual post-generation fixes minimal and documented. Public ergonomics belong in `SwarmClient`, not in the generated layer. Regeneration lives in `tools/` (see `tools/README.md`): bundle the multi-file spec with `npx @redocly/cli bundle ./bee-openapi/Swarm.yaml -o bee-openapi.yaml` (use `redocly bundle`, **never** a dereferencing tool — that drops `components/schemas` and makes NSwag emit hundreds of anonymous `ResponseN` DTOs), then run `nswag run bee-api.nswag` and `nswag run beehive-api.nswag`. To bump the API version, copy the upstream `*.yaml` from `ethersphere/bee/openapi` into `tools/original-open-api/` and merge. **After regenerating, re-apply the Native AOT post-generation fixes** documented in [docs/NativeAot.md](docs/NativeAot.md) (the source-gen serialization swaps and the `*.Aot.cs` companion contexts) — they are required for the AOT publish to stay clean.
-- **Injectable time for delays/timeouts.** Code that schedules work over time takes a `TimeProvider` (defaulting to `TimeProvider.System`) so tests can drive a `FakeTimeProvider` instead of the wall clock. See `ReplicaResolverChunkStore` and its test.
+- **Injectable time for delays/timeouts.** Code that schedules work over time takes a `TimeProvider` (defaulting to `TimeProvider.System`) so tests can drive a `FakeTimeProvider` instead of the wall clock. See `ReplicaResolverChunkStore` and its test, and `SwarmClient`, whose per-operation bounds and upload retries run on its `TimeProvider` (`SwarmClientTest` drives them against a `HangingHttpMessageHandler`).
 
 ## Issue tracker
 
@@ -166,14 +166,6 @@ private void InternalHelper() { ... }
   public override bool CanSeek => true;
   ```
 - LINQ method chains: one operation per line, aligned
-- When a call's or constructor's arguments are wrapped one per line, keep the **first** argument on the opening-parenthesis line and align the rest under it — don't drop the first argument onto its own line. Skip this only when the first argument is itself long enough to warrant its own line.
-  ```csharp
-  new(id: id,
-      amount: null,
-      depth: PostageBatch.MinDepth,
-      utilization: 0);
-  ```
-  This applies to invocation argument lists; multi-line method/constructor *parameter declarations* keep the first parameter on its own line, as elsewhere in the codebase.
 - Blank line between member sections
 
 ## C# Language Features
