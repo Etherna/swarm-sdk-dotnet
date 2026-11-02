@@ -283,8 +283,7 @@ components:
 
     GasPrice:
       description: Gas price refers to the amount you’re willing to pay for every unit of gas.
-      type: integer
-      format: int64
+      type: string
 
     Hash:
       type: object

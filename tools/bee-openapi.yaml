@@ -1937,8 +1937,7 @@ paths:
         - in: query
           name: amount
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/BigInt'
           required: true
           description: Amount of tokens to deposit
         - $ref: '#/components/parameters/GasPriceParameter'
@@ -1964,8 +1963,7 @@ paths:
         - in: query
           name: amount
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/BigInt'
           required: true
           description: Amount of tokens to withdraw
         - $ref: '#/components/parameters/GasPriceParameter'
@@ -2236,8 +2234,7 @@ paths:
         - in: path
           name: amount
           schema:
-            type: integer
-            format: int64
+            $ref: '#/components/schemas/BigInt'
           required: true
           description: Amount of BZZ per chunk to top up to an existing postage batch.
         - $ref: '#/components/parameters/GasPriceParameter'
@@ -3212,8 +3209,7 @@ components:
           $ref: '#/components/schemas/BigInt'
     GasPrice:
       description: Gas price refers to the amount you’re willing to pay for every unit of gas.
-      type: integer
-      format: int64
+      type: string
     GasLimit:
       description: Gas limit refers to the maximum amount of gas you’re willing to spend on a particular transaction.
       type: integer
