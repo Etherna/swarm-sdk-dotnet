@@ -14,9 +14,12 @@
 
 using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Models;
+using Microsoft.Extensions.Time.Testing;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -37,7 +40,75 @@ namespace Etherna.SwarmSdk
         private static readonly SwarmHash chunkHash = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
         private static readonly Uri nodeUrl = new("http://localhost:1633/");
         
+        // Data.
+        public static TheoryData<SwarmClients, string, TimeSpan, Func<SwarmClient, Task>> OperationClassBounds => new()
+        {
+            { SwarmClients.Bee, nameof(SwarmClient.BuyPostageBatchAsync), TimeSpan.FromMinutes(10), c => c.BuyPostageBatchAsync(BzzValue.FromPlurDecimal(1), 20) },
+            { SwarmClients.Beehive, nameof(SwarmClient.BuyPostageBatchAsync), TimeSpan.FromMinutes(10), c => c.BuyPostageBatchAsync(BzzValue.FromPlurDecimal(1), 20) },
+            { SwarmClients.Bee, nameof(SwarmClient.DepositIntoChequebookAsync), TimeSpan.FromSeconds(60), c => c.DepositIntoChequebookAsync(BzzValue.FromPlurDecimal(1)) },
+            { SwarmClients.Bee, nameof(SwarmClient.GetChainStateAsync), TimeSpan.FromSeconds(30), c => c.GetChainStateAsync() },
+            { SwarmClients.Beehive, nameof(SwarmClient.GetChainStateAsync), TimeSpan.FromSeconds(30), c => c.GetChainStateAsync() },
+            { SwarmClients.Bee, nameof(SwarmClient.GetChunkStreamAsync), TimeSpan.FromMinutes(2), c => c.GetChunkStreamAsync(chunkHash) },
+            { SwarmClients.Beehive, nameof(SwarmClient.GetChunkStreamAsync), TimeSpan.FromMinutes(2), c => c.GetChunkStreamAsync(chunkHash) },
+            { SwarmClients.Bee, nameof(SwarmClient.GetGlobalValidPostageBatchesAsync), TimeSpan.FromSeconds(60), c => c.GetGlobalValidPostageBatchesAsync() },
+            { SwarmClients.Beehive, nameof(SwarmClient.GetGlobalValidPostageBatchesAsync), TimeSpan.FromSeconds(60), c => c.GetGlobalValidPostageBatchesAsync() },
+            { SwarmClients.Bee, nameof(SwarmClient.OpenChunkUploadWebSocketConnectionAsync), TimeSpan.FromSeconds(5), c => c.GetChunkUploaderWebSocketAsync(batchId) },
+            { SwarmClients.Bee, nameof(SwarmClient.TryConnectToPeerAsync), TimeSpan.FromSeconds(60), c => c.TryConnectToPeerAsync("peer") },
+            { SwarmClients.Bee, nameof(SwarmClient.UploadBytesAsync), TimeSpan.FromMinutes(10), c => c.UploadBytesAsync(new MemoryStream([1, 2, 3]), batchId) },
+            { SwarmClients.Beehive, nameof(SwarmClient.UploadBytesAsync), TimeSpan.FromMinutes(10), c => c.UploadBytesAsync(new MemoryStream([1, 2, 3]), batchId) },
+            { SwarmClients.Bee, nameof(SwarmClient.UploadChunkAsync), TimeSpan.FromMinutes(4), c => c.UploadChunkAsync(new MemoryStream([1, 2, 3]), batchId) },
+            { SwarmClients.Beehive, nameof(SwarmClient.UploadChunkAsync), TimeSpan.FromMinutes(4), c => c.UploadChunkAsync(new MemoryStream([1, 2, 3]), batchId) },
+        };
+        
         // Tests.
+        [Fact]
+        public void ConstructorBuildsItsHttpClientOnTheLongestBound()
+        {
+            // Setup.
+            var timeouts = new SwarmClientTimeouts { ContentTransfer = TimeSpan.FromMinutes(30) };
+            
+            // Run.
+            using var swarmClient = new SwarmClient(nodeUrl, timeouts: timeouts);
+            
+            // Assert.
+            Assert.Same(timeouts, swarmClient.Timeouts);
+        }
+        
+        [Fact]
+        public void ConstructorRejectsAnHttpClientTimeoutShorterThanABound()
+        {
+            // Setup.
+            using var httpClient = new HttpClient(new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK))
+            {
+                Timeout = TimeSpan.FromMinutes(5)
+            };
+            
+            // Run.
+            var thrown = Assert.Throws<ArgumentException>(() => new SwarmClient(nodeUrl, httpClient: httpClient));
+            
+            // Assert.
+            Assert.Equal("httpClient", thrown.ParamName);
+            Assert.StartsWith("The HttpClient timeout (00:05:00) is shorter than the ContentTransfer bound (00:10:00)", thrown.Message, StringComparison.Ordinal);
+        }
+        
+        [Fact]
+        public void ConstructorRejectsAnHttpClientTimeoutUnderAnUnboundedClass()
+        {
+            // Setup.
+            using var httpClient = new HttpClient(new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK))
+            {
+                Timeout = TimeSpan.FromMinutes(10)
+            };
+            var timeouts = new SwarmClientTimeouts { Local = Timeout.InfiniteTimeSpan };
+            
+            // Run.
+            var thrown = Assert.Throws<ArgumentException>(() => new SwarmClient(nodeUrl, httpClient: httpClient, timeouts: timeouts));
+            
+            // Assert.
+            Assert.Equal("httpClient", thrown.ParamName);
+            Assert.Contains("the Local bound", thrown.Message, StringComparison.Ordinal);
+        }
+        
         [Fact]
         public async Task DepositIntoChequebookInBeeModeSendsAnAmountAboveLongAsAPlurString()
         {
@@ -45,7 +116,7 @@ namespace Etherna.SwarmSdk
             var handler = new StatusAnsweringHttpMessageHandler(
                 HttpStatusCode.OK,
                 $$"""{"transactionHash":"{{TransactionHashHex}}"}""");
-            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var txHash = await swarmClient.DepositIntoChequebookAsync(BzzValue.FromPlurString(AboveLongAmount));
@@ -59,13 +130,85 @@ namespace Etherna.SwarmSdk
         }
         
         [Fact]
+        public async Task GetHealthOnAHangingNodePropagatesTheCallerCancellation()
+        {
+            // Setup.
+            var handler = new HangingHttpMessageHandler();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                SwarmClients.Bee,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeProvider: new FakeTimeProvider());
+            using var cancellationTokenSource = new CancellationTokenSource();
+            
+            // Run.
+            var task = swarmClient.GetHealthAsync(cancellationTokenSource.Token);
+            await handler.RequestReceived;
+            await cancellationTokenSource.CancelAsync();
+            
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        }
+        
+        [Fact]
+        public async Task GetHealthOnAHangingNodeThrowsTheTimeoutAtACustomLocalBound()
+        {
+            // Setup.
+            var handler = new HangingHttpMessageHandler();
+            var timeProvider = new FakeTimeProvider();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                SwarmClients.Bee,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeouts: new SwarmClientTimeouts { Local = TimeSpan.FromSeconds(1) },
+                timeProvider: timeProvider);
+            
+            // Run.
+            var task = swarmClient.GetHealthAsync();
+            await handler.RequestReceived;
+            timeProvider.Advance(TimeSpan.FromSeconds(1));
+            var thrown = await Assert.ThrowsAsync<SwarmClientTimeoutException>(() => task);
+            
+            // Assert.
+            Assert.Equal(TimeSpan.FromSeconds(1), thrown.Timeout);
+        }
+        
+        [Fact]
+        public async Task GetHealthOnAHangingNodeThrowsTheTimeoutAtItsLocalBound()
+        {
+            // Setup.
+            var handler = new HangingHttpMessageHandler();
+            var timeProvider = new FakeTimeProvider();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                SwarmClients.Bee,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeProvider: timeProvider);
+            
+            // Run.
+            var task = swarmClient.GetHealthAsync();
+            await handler.RequestReceived;
+            timeProvider.Advance(TimeSpan.FromSeconds(5) - TimeSpan.FromMilliseconds(1));
+            var isCompletedBeforeTheBound = task.IsCompleted;
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+            var thrown = await Assert.ThrowsAsync<SwarmClientTimeoutException>(() => task);
+            
+            // Assert.
+            Assert.False(isCompletedBeforeTheBound);
+            Assert.Equal("SwarmClient.GetHealthAsync", thrown.Operation);
+            Assert.Equal(TimeSpan.FromSeconds(5), thrown.Timeout);
+            Assert.Equal("SwarmClient.GetHealthAsync did not complete within 5 s", thrown.Message);
+            Assert.Equal("/health", Assert.Single(handler.Requests).RequestUri!.AbsolutePath);
+        }
+        
+        [Fact]
         public async Task GetOwnedPostageBatchesInBeehiveModeReadsTheErrorOfADegradedEntry()
         {
             // Setup.
             var handler = new StatusAnsweringHttpMessageHandler(
                 HttpStatusCode.OK,
                 $$"""{"stamps":[{{FullBatchJson}},{{DegradedBatchJson}}]}""");
-            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Beehive, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Beehive, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var responses = await swarmClient.GetOwnedPostageBatchesAsync();
@@ -86,7 +229,7 @@ namespace Etherna.SwarmSdk
         {
             // Setup.
             var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK, FullBatchJson);
-            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Beehive, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Beehive, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var response = await swarmClient.GetPostageBatchAsync(
@@ -104,7 +247,7 @@ namespace Etherna.SwarmSdk
         {
             // Setup.
             var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK, DegradedBatchJson);
-            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Beehive, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Beehive, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var response = await swarmClient.GetPostageBatchAsync(
@@ -130,7 +273,7 @@ namespace Etherna.SwarmSdk
             var handler = new StatusAnsweringHttpMessageHandler(
                 HttpStatusCode.NotFound,
                 """{"code":404,"message":"chunk not found"}""");
-            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var isExisting = await swarmClient.IsChunkExistingAsync(chunkHash);
@@ -146,7 +289,7 @@ namespace Etherna.SwarmSdk
         {
             // Setup.
             var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK);
-            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var isExisting = await swarmClient.IsChunkExistingAsync(chunkHash);
@@ -167,13 +310,44 @@ namespace Etherna.SwarmSdk
         {
             // Setup.
             var handler = new StatusAnsweringHttpMessageHandler(statusCode, "read chunk failed");
-            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var thrown = await Assert.ThrowsAsync<SwarmSdkApiException>(() => swarmClient.IsChunkExistingAsync(chunkHash));
             
             // Assert.
             Assert.Equal((int)statusCode, thrown.StatusCode);
+        }
+        
+        [Theory]
+        [MemberData(nameof(OperationClassBounds))]
+        public async Task OperationOnAHangingNodeThrowsTheTimeoutAtItsClassBound(
+            SwarmClients apiCompatibility,
+            string operationName,
+            TimeSpan bound,
+            Func<SwarmClient, Task> operation)
+        {
+            // Setup.
+            var handler = new HangingHttpMessageHandler();
+            var timeProvider = new FakeTimeProvider();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                apiCompatibility,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeProvider: timeProvider);
+            
+            // Run.
+            var task = operation(swarmClient);
+            await handler.RequestReceived;
+            timeProvider.Advance(bound - TimeSpan.FromMilliseconds(1));
+            var isCompletedBeforeTheBound = task.IsCompleted;
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+            var thrown = await Assert.ThrowsAsync<SwarmClientTimeoutException>(() => task);
+            
+            // Assert.
+            Assert.False(isCompletedBeforeTheBound);
+            Assert.Equal($"SwarmClient.{operationName}", thrown.Operation);
+            Assert.Equal(bound, thrown.Timeout);
         }
         
         [Fact]
@@ -183,7 +357,7 @@ namespace Etherna.SwarmSdk
             var handler = new StatusAnsweringHttpMessageHandler(
                 HttpStatusCode.Accepted,
                 $$"""{"batchID":"{{batchId}}","txHash":"{{TransactionHashHex}}"}""");
-            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var txHash = await swarmClient.TopUpPostageBatchAsync(
@@ -206,7 +380,7 @@ namespace Etherna.SwarmSdk
             var handler = new StatusAnsweringHttpMessageHandler(
                 HttpStatusCode.OK,
                 $$"""{"transactionHash":"{{TransactionHashHex}}"}""");
-            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler));
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
             
             // Run.
             var txHash = await swarmClient.WithdrawFromChequebookAsync(
