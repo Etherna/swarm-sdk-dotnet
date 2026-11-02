@@ -25,16 +25,39 @@ namespace Etherna.SwarmSdk
     public class SwarmClientTest
     {
         // Consts.
+        private const string AboveLongAmount = "10000000000000000000";
         private const string DegradedBatchJson =
             """{"batchID":"aa48dd9f8c1a62ecbca14bbe76ee35f2bb1fd5c89bd5e3e32c0d0e1d4cdf1b6e","utilization":3,"usable":false,"label":"","depth":20,"amount":null,"bucketDepth":16,"immutableFlag":false,"error":"Node is not ready"}""";
         private const string FullBatchJson =
             """{"batchID":"42d923558a0fcec12cd6c84ef4118f32caa694d60ae677e1ebe76ad8e470d099","utilization":0,"usable":true,"label":"","depth":17,"amount":"2831120640","bucketDepth":16,"blockNumber":44667643,"immutableFlag":false,"exists":true,"batchTTL":120105}""";
+        private const string TransactionHashHex = "0x5a1f0c3b9e7d2a4c6b8e0f1d3c5a7b9e1f3d5c7a9b1e3f5d7c9a1b3e5f7d9c1b";
         
         // Fields.
+        private static readonly PostageBatchId batchId = "42d923558a0fcec12cd6c84ef4118f32caa694d60ae677e1ebe76ad8e470d099";
         private static readonly SwarmHash chunkHash = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
         private static readonly Uri nodeUrl = new("http://localhost:1633/");
         
         // Tests.
+        [Fact]
+        public async Task DepositIntoChequebookInBeeModeSendsAnAmountAboveLongAsAPlurString()
+        {
+            // Setup.
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.OK,
+                $$"""{"transactionHash":"{{TransactionHashHex}}"}""");
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler));
+            
+            // Run.
+            var txHash = await swarmClient.DepositIntoChequebookAsync(BzzValue.FromPlurString(AboveLongAmount));
+            
+            // Assert.
+            Assert.Equal(TransactionHashHex, txHash.ToString());
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("/chequebook/deposit", request.RequestUri!.AbsolutePath);
+            Assert.Equal($"?amount={AboveLongAmount}", request.RequestUri.Query);
+        }
+        
         [Fact]
         public async Task GetOwnedPostageBatchesInBeehiveModeReadsTheErrorOfADegradedEntry()
         {
@@ -151,6 +174,52 @@ namespace Etherna.SwarmSdk
             
             // Assert.
             Assert.Equal((int)statusCode, thrown.StatusCode);
+        }
+        
+        [Fact]
+        public async Task TopUpPostageBatchInBeeModeSendsAnAmountAndAGasPriceAboveLongAsIntegerStrings()
+        {
+            // Setup.
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.Accepted,
+                $$"""{"batchID":"{{batchId}}","txHash":"{{TransactionHashHex}}"}""");
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler));
+            
+            // Run.
+            var txHash = await swarmClient.TopUpPostageBatchAsync(
+                batchId,
+                BzzValue.FromPlurString(AboveLongAmount),
+                gasPrice: XDaiValue.FromWeiString(AboveLongAmount));
+            
+            // Assert.
+            Assert.Equal(TransactionHashHex, txHash.ToString());
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Patch, request.Method);
+            Assert.Equal($"/stamps/topup/{batchId}/{AboveLongAmount}", request.RequestUri!.AbsolutePath);
+            Assert.Equal(AboveLongAmount, Assert.Single(request.Headers.GetValues("gas-price")));
+        }
+        
+        [Fact]
+        public async Task WithdrawFromChequebookInBeeModeSendsAnAmountAndAGasPriceAboveLongAsIntegerStrings()
+        {
+            // Setup.
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.OK,
+                $$"""{"transactionHash":"{{TransactionHashHex}}"}""");
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler));
+            
+            // Run.
+            var txHash = await swarmClient.WithdrawFromChequebookAsync(
+                BzzValue.FromPlurString(AboveLongAmount),
+                gasPrice: XDaiValue.FromWeiString(AboveLongAmount));
+            
+            // Assert.
+            Assert.Equal(TransactionHashHex, txHash.ToString());
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("/chequebook/withdraw", request.RequestUri!.AbsolutePath);
+            Assert.Equal($"?amount={AboveLongAmount}", request.RequestUri.Query);
+            Assert.Equal(AboveLongAmount, Assert.Single(request.Headers.GetValues("gas-price")));
         }
     }
 }

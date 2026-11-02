@@ -2001,8 +2001,7 @@ paths:
         - in: query
           name: amount
           schema:
-            type: integer
-            format: int64
+            $ref: "SwarmCommon.yaml#/components/schemas/BigInt"
           required: true
           description: Amount of tokens to deposit
         - $ref: "SwarmCommon.yaml#/components/parameters/GasPriceParameter"
@@ -2029,8 +2028,7 @@ paths:
         - in: query
           name: amount
           schema:
-            type: integer
-            format: int64
+            $ref: "SwarmCommon.yaml#/components/schemas/BigInt"
           required: true
           description: Amount of tokens to withdraw
         - $ref: "SwarmCommon.yaml#/components/parameters/GasPriceParameter"
@@ -2309,8 +2307,7 @@ paths:
         - in: path
           name: amount
           schema:
-            type: integer
-            format: int64
+            $ref: "SwarmCommon.yaml#/components/schemas/BigInt"
           required: true
           description: Amount of BZZ per chunk to top up to an existing postage batch.
         - $ref: "SwarmCommon.yaml#/components/parameters/GasPriceParameter"

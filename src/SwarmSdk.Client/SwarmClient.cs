@@ -172,7 +172,7 @@ namespace Etherna.SwarmSdk
                         label: label,
                         immutable: immutable,
                         gas_limit: gasLimit,
-                        gas_price: (long?)gasPrice?.ToWeiDecimal(),
+                        gas_price: gasPrice?.ToWeiString(),
                         cancellationToken: cancellationToken).ConfigureAwait(false);
                     return (result.BatchID, result.TxHash);
                 }
@@ -208,7 +208,7 @@ namespace Etherna.SwarmSdk
                 {
                     return (await beeGeneratedClient.ChequebookCashoutPostAsync(
                         peerId,
-                        (long?)gasPrice?.ToWeiDecimal(),
+                        gasPrice?.ToWeiString(),
                         gasLimit,
                         cancellationToken).ConfigureAwait(false)).TransactionHash;
                 }
@@ -514,7 +514,7 @@ namespace Etherna.SwarmSdk
                 case SwarmClients.Bee:
                     return (await beeGeneratedClient.TransactionsDeleteAsync(
                         txHash.ToString(),
-                        (long?)gasPrice?.ToWeiDecimal(),
+                        gasPrice?.ToWeiString(),
                         cancellationToken).ConfigureAwait(false)).TransactionHash;
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
@@ -535,8 +535,8 @@ namespace Etherna.SwarmSdk
             {
                 case SwarmClients.Bee:
                     return (await beeGeneratedClient.ChequebookDepositAsync(
-                        (long)amount.ToPlurDecimal(),
-                        (long?)gasPrice?.ToWeiDecimal(),
+                        amount.ToPlurString(),
+                        gasPrice?.ToWeiString(),
                         cancellationToken).ConfigureAwait(false)).TransactionHash;
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
@@ -561,7 +561,7 @@ namespace Etherna.SwarmSdk
                     return (await beeGeneratedClient.StampsDiluteAsync(
                         batch_id: batchId.ToString(),
                         depth: depth,
-                        gas_price: (long?)gasPrice?.ToWeiDecimal(),
+                        gas_price: gasPrice?.ToWeiString(),
                         gas_limit: gasLimit,
                         cancellationToken: cancellationToken).ConfigureAwait(false)).TxHash;
                 case SwarmClients.Beehive:
@@ -2420,7 +2420,7 @@ namespace Etherna.SwarmSdk
             {
                 case SwarmClients.Bee:
                     await beeGeneratedClient.StakeDeleteAsync(
-                        (long?)gasPrice?.ToWeiDecimal(),
+                        gasPrice?.ToWeiString(),
                         gasLimit,
                         cancellationToken).ConfigureAwait(false);
                     break;
@@ -2463,7 +2463,7 @@ namespace Etherna.SwarmSdk
                 case SwarmClients.Bee:
                     await beeGeneratedClient.StakePostAsync(
                         amount.ToPlurString(),
-                        (long?)gasPrice?.ToWeiDecimal(),
+                        gasPrice?.ToWeiString(),
                         gasLimit,
                         cancellationToken).ConfigureAwait(false);
                     break;
@@ -2485,7 +2485,7 @@ namespace Etherna.SwarmSdk
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
-                    return beeGeneratedClient.StakeWithdrawableDeleteAsync((long?)gasPrice?.ToWeiDecimal(), gasLimit, cancellationToken);
+                    return beeGeneratedClient.StakeWithdrawableDeleteAsync(gasPrice?.ToWeiString(), gasLimit, cancellationToken);
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();
                 default:
@@ -2651,9 +2651,9 @@ namespace Etherna.SwarmSdk
                 case SwarmClients.Bee:
                     return (await beeGeneratedClient.StampsTopupAsync(
                         batch_id: batchId.ToString(),
-                        amount: (long)amount.ToPlurDecimal(),
+                        amount: amount.ToPlurString(),
                         gas_limit: gasLimit,
-                        gas_price: (long?)gasPrice?.ToWeiDecimal(),
+                        gas_price: gasPrice?.ToWeiString(),
                         cancellationToken: cancellationToken).ConfigureAwait(false)).TxHash;
                 case SwarmClients.Beehive:
                     return (await beehiveGeneratedClient.StampsTopupAsync(
@@ -3323,8 +3323,8 @@ namespace Etherna.SwarmSdk
             {
                 case SwarmClients.Bee:
                     return (await beeGeneratedClient.ChequebookWithdrawAsync(
-                        (long)amount.ToPlurDecimal(),
-                        (long?)gasPrice?.ToWeiDecimal(),
+                        amount.ToPlurString(),
+                        gasPrice?.ToWeiString(),
                         cancellationToken).ConfigureAwait(false)).TransactionHash;
                 case SwarmClients.Beehive:
                     throw new NotSupportedException();

@@ -721,7 +721,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Cheque has been cashed out</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<TransactionResponse> ChequebookCashoutPostAsync(string peer, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<TransactionResponse> ChequebookCashoutPostAsync(string peer, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -748,7 +748,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_price">Gas price for transaction</param>
         /// <returns>Transaction hash of the deposit transaction</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<TransactionResponse> ChequebookDepositAsync(long amount, long? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<TransactionResponse> ChequebookDepositAsync(string amount, string? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -758,7 +758,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_price">Gas price for transaction</param>
         /// <returns>Transaction hash of the withdraw transaction</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<TransactionResponse> ChequebookWithdrawAsync(long amount, long? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<TransactionResponse> ChequebookWithdrawAsync(string amount, string? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -794,7 +794,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_price">Gas price for transaction</param>
         /// <returns>Hash of the transaction</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<TransactionResponse> TransactionsDeleteAsync(string hash, long? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<TransactionResponse> TransactionsDeleteAsync(string hash, string? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -845,7 +845,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Returns the newly created postage batch ID</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<BatchIDResponse> StampsPostAsync(string amount, int depth, string? label = null, bool? immutable = null, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BatchIDResponse> StampsPostAsync(string amount, int depth, string? label = null, bool? immutable = null, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -860,7 +860,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Returns the postage batch ID that was topped up</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<BatchIDResponse> StampsTopupAsync(string batch_id, long amount, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BatchIDResponse> StampsTopupAsync(string batch_id, string amount, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -875,7 +875,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Returns the postage batch ID that was diluted.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<BatchIDResponse> StampsDiluteAsync(string batch_id, int depth, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BatchIDResponse> StampsDiluteAsync(string batch_id, int depth, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -970,7 +970,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<StakeTransactionResponse> StakeWithdrawableDeleteAsync(long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<StakeTransactionResponse> StakeWithdrawableDeleteAsync(string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -984,7 +984,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<StakeTransactionResponse> StakePostAsync(string amount, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<StakeTransactionResponse> StakePostAsync(string amount, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -1008,7 +1008,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<StakeTransactionResponse> StakeDeleteAsync(long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<StakeTransactionResponse> StakeDeleteAsync(string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -7492,7 +7492,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Cheque has been cashed out</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<TransactionResponse> ChequebookCashoutPostAsync(string peer, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<TransactionResponse> ChequebookCashoutPostAsync(string peer, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (peer == null)
                 throw new System.ArgumentNullException("peer");
@@ -7802,7 +7802,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_price">Gas price for transaction</param>
         /// <returns>Transaction hash of the deposit transaction</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<TransactionResponse> ChequebookDepositAsync(long amount, long? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<TransactionResponse> ChequebookDepositAsync(string amount, string? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (amount == null)
                 throw new System.ArgumentNullException("amount");
@@ -7908,7 +7908,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_price">Gas price for transaction</param>
         /// <returns>Transaction hash of the withdraw transaction</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<TransactionResponse> ChequebookWithdrawAsync(long amount, long? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<TransactionResponse> ChequebookWithdrawAsync(string amount, string? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (amount == null)
                 throw new System.ArgumentNullException("amount");
@@ -8297,7 +8297,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_price">Gas price for transaction</param>
         /// <returns>Hash of the transaction</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<TransactionResponse> TransactionsDeleteAsync(string hash, long? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<TransactionResponse> TransactionsDeleteAsync(string hash, string? gas_price = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (hash == null)
                 throw new System.ArgumentNullException("hash");
@@ -8814,7 +8814,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Returns the newly created postage batch ID</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<BatchIDResponse> StampsPostAsync(string amount, int depth, string? label = null, bool? immutable = null, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<BatchIDResponse> StampsPostAsync(string amount, int depth, string? label = null, bool? immutable = null, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (amount == null)
                 throw new System.ArgumentNullException("amount");
@@ -8950,7 +8950,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Returns the postage batch ID that was topped up</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<BatchIDResponse> StampsTopupAsync(string batch_id, long amount, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<BatchIDResponse> StampsTopupAsync(string batch_id, string amount, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (batch_id == null)
                 throw new System.ArgumentNullException("batch_id");
@@ -9087,7 +9087,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>Returns the postage batch ID that was diluted.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<BatchIDResponse> StampsDiluteAsync(string batch_id, int depth, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<BatchIDResponse> StampsDiluteAsync(string batch_id, int depth, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (batch_id == null)
                 throw new System.ArgumentNullException("batch_id");
@@ -10048,7 +10048,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<StakeTransactionResponse> StakeWithdrawableDeleteAsync(long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<StakeTransactionResponse> StakeWithdrawableDeleteAsync(string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
@@ -10154,7 +10154,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<StakeTransactionResponse> StakePostAsync(string amount, long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<StakeTransactionResponse> StakePostAsync(string amount, string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (amount == null)
                 throw new System.ArgumentNullException("amount");
@@ -10351,7 +10351,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="gas_limit">Gas limit for transaction</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<StakeTransactionResponse> StakeDeleteAsync(long? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<StakeTransactionResponse> StakeDeleteAsync(string? gas_price = null, ulong? gas_limit = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             var client_ = _httpClient;
             var disposeClient_ = false;
