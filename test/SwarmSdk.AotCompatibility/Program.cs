@@ -18,6 +18,7 @@ namespace Etherna.SwarmSdk.AotCompatibility
     using Etherna.SwarmSdk.Models;
     using System;
     using System.Net.Http;
+    using System.Threading;
     using System.Threading.Tasks;
 
     // Native AOT compatibility probe for SwarmSdk and SwarmSdk.Client. The actual compatibility gate
@@ -68,10 +69,11 @@ namespace Etherna.SwarmSdk.AotCompatibility
             {
                 const string chainStateJson =
                     """{"chainTip":42,"block":40,"totalAmount":"1000","currentPrice":"7","minimumValidityBlocks":3}""";
+                // The client refuses an HttpClient whose timeout is shorter than one of its bounds.
                 using var client = new SwarmClient(
                     new Uri("http://localhost"),
                     SwarmClients.Bee,
-                    new HttpClient(new CannedJsonHandler(chainStateJson)));
+                    new HttpClient(new CannedJsonHandler(chainStateJson)) { Timeout = Timeout.InfiniteTimeSpan });
 
                 var chainState = await client.GetChainStateAsync().ConfigureAwait(false);
 
