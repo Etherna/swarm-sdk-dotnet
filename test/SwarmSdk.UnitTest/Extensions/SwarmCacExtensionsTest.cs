@@ -15,7 +15,10 @@
 using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Models;
+using System;
+using System.Buffers.Binary;
 using System.Linq;
+using System.Text;
 using Xunit;
 
 namespace Etherna.SwarmSdk.Extensions
@@ -38,6 +41,44 @@ namespace Etherna.SwarmSdk.Extensions
             
             // Assert.
             Assert.Equal(anotherReference.Hash, thrown.Hash);
+        }
+
+        [Fact]
+        public void DecodeRejectsAnIntermediateChunkNotHoldingTheReferencesOfItsSpan()
+        {
+            // Setup.
+            //a span of two data chunks over a payload of three references
+            var bmt = new SwarmChunkBmt();
+            var spanData = new byte[SwarmCac.SpanSize + 3 * SwarmReference.PlainSize];
+            BinaryPrimitives.WriteUInt64LittleEndian(spanData, SwarmCac.DataSize + 1);
+            var chunk = new SwarmCac(bmt.Hash(spanData), spanData);
+
+            // Run.
+            var thrown = Assert.Throws<SwarmChunkFormatException>(() =>
+                chunk.Decode(new SwarmReference(chunk.Hash, null), new Hasher()));
+
+            // Assert.
+            Assert.Equal(chunk.Hash, thrown.Hash);
+            Assert.Contains("96 bytes", thrown.Message, StringComparison.Ordinal);
+            Assert.Contains("2 data", thrown.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void DecodeRejectsAChunkWhoseSpanNoTrieCanHold()
+        {
+            // Setup.
+            //arbitrary bytes read as a chunk: the first eight are a span of about 2^62 bytes
+            var bmt = new SwarmChunkBmt();
+            var spanData = Encoding.UTF8.GetBytes("second update of the feed, written as plain text");
+            var chunk = new SwarmCac(bmt.Hash(spanData), spanData);
+
+            // Run.
+            var thrown = Assert.Throws<SwarmChunkFormatException>(() =>
+                chunk.Decode(new SwarmReference(chunk.Hash, null), new Hasher()));
+
+            // Assert.
+            Assert.Equal(chunk.Hash, thrown.Hash);
+            Assert.Contains("exceeds the content a chunk trie can hold", thrown.Message, StringComparison.Ordinal);
         }
     }
 }

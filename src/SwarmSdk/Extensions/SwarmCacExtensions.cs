@@ -70,9 +70,17 @@ namespace Etherna.SwarmSdk.Extensions
                     plainData);
             }
 
-            //if intermediate chunk
-            var parities = SwarmCac.CountIntermediateReferences(
-                spanLength, redundancyLevel, reference.IsEncrypted).ParityShards;
+            //if intermediate chunk: a well formed one has a span some chunk trie can hold, and holds exactly the
+            //references that span implies. Anything else is not a chunk, whatever hashes to the address
+            if (!SwarmCac.TryCountIntermediateReferences(
+                    spanLength, redundancyLevel, reference.IsEncrypted, out var dataShards, out var parities))
+                throw new SwarmChunkFormatException(
+                    reference.Hash,
+                    $"Chunk {reference.Hash} span of {spanLength} bytes exceeds the content a chunk trie can hold");
+            if (plainData.Length != SwarmCac.CalculatePlainDataLength(dataShards, parities, reference.IsEncrypted))
+                throw new SwarmChunkFormatException(
+                    reference.Hash,
+                    $"Chunk {reference.Hash} data of {plainData.Length} bytes doesn't hold the {dataShards} data and {parities} parity references its span of {spanLength} bytes implies");
             return new SwarmDecodedIntermediateCac(
                 reference,
                 redundancyLevel,
