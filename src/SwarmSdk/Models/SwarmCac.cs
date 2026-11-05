@@ -78,6 +78,17 @@ namespace Etherna.SwarmSdk.Models
         public override byte[] GetFullPayloadToByteArray() => SpanData.ToArray();
 
         // Static methods.
+        /// <summary>
+        /// Plain data length of an intermediate chunk holding the given references: an encrypted data reference
+        /// carries its decryption key, a parity reference is always a plain hash
+        /// </summary>
+        public static int CalculatePlainDataLength(
+            int dataShards,
+            int parityShards,
+            bool encryptedDataReferences) =>
+            (encryptedDataReferences ? SwarmReference.EncryptedSize : SwarmReference.PlainSize) * dataShards +
+            parityShards * SwarmHash.HashSize;
+
         public static int CalculatePlainDataLength(
             ulong spanLength,
             RedundancyLevel redundancyLevel,
@@ -89,8 +100,7 @@ namespace Etherna.SwarmSdk.Models
             
             // If is intermediate chunk.
             var (dataShards, parities) = CountIntermediateReferences(spanLength, redundancyLevel, encryptedDataReferences);
-            return (encryptedDataReferences ? SwarmReference.EncryptedSize : SwarmReference.PlainSize) * dataShards +
-                   parities * SwarmHash.HashSize;
+            return CalculatePlainDataLength(dataShards, parities, encryptedDataReferences);
         }
 
         public static (int DataShards, int ParityShards) CountIntermediateReferences(
@@ -102,47 +112,14 @@ namespace Etherna.SwarmSdk.Models
             return CountIntermediateReferences(spanLength, redundancyLevel, isEncrypted);
         }
         
+        /// <exception cref="OverflowException">No chunk trie can hold a content of the span length</exception>
         public static (int DataShards, int ParityShards) CountIntermediateReferences(
             ulong spanLength,
             RedundancyLevel redundancyLevel,
             bool isEncrypted)
         {
-            if (spanLength <= DataSize)
-                throw new ArgumentOutOfRangeException(nameof(spanLength), $"Span length is not from intermediate chunk, it must be greater than {DataSize} bytes");
-            
-            /*
-             * Assume we have a trie of size `span` then we can assume that all the forks except for
-             * the last one on the right are of equal size, this is due to how the splitter wraps levels.
-             * First the algorithm will search for a BMT level where span can be included,
-             * then identify how large data one reference can hold on that level,
-             * then count how many references can satisfy span,
-             * and finally how many parity shards should be on that level.
-             */
-            
-            //branching factor is how many data shard references can fit into one intermediate chunk
-            var branching = (ulong)redundancyLevel.GetMaxDataShards(isEncrypted);
-            
-            // Search for branch level big enough to include span.
-            var branchLevel = 1;
-            ulong branchSize = DataSize;
-            for (; branchSize < spanLength; branchLevel++)
-            {
-                var high = Math.BigMul(branchSize, branching, out branchSize);
-                if (high != 0) //overflow
-                    throw new OverflowException($"branchSize overflow with spanLength at {spanLength} bytes");
-            }
-            
-            // Span in one full reference. referenceSize = branching ^ (branchLevel - 1)
-            ulong referenceSize = DataSize;
-            for (var i = 1; i < branchLevel - 1; i++)
-                referenceSize *= branching;
-
-            var dataShards = (int)(spanLength / referenceSize);
-            if (spanLength % referenceSize != 0)
-                dataShards++;
-
-            var parityShards = redundancyLevel.GetParitiesAmount(isEncrypted, dataShards);
-
+            if (!TryCountIntermediateReferences(spanLength, redundancyLevel, isEncrypted, out var dataShards, out var parityShards))
+                throw new OverflowException($"branchSize overflow with spanLength at {spanLength} bytes");
             return (dataShards, parityShards);
         }
 
@@ -286,6 +263,60 @@ namespace Etherna.SwarmSdk.Models
             if (!IsSpanEncoded(span))
                 return RedundancyLevel.None;
             return (RedundancyLevel)(span[SpanSize - 1] & 127);
+        }
+
+        /// <summary>
+        /// Count the data and parity references an intermediate chunk of the given span holds
+        /// </summary>
+        /// <returns>False when no chunk trie can hold a content of the span length</returns>
+        public static bool TryCountIntermediateReferences(
+            ulong spanLength,
+            RedundancyLevel redundancyLevel,
+            bool isEncrypted,
+            out int dataShards,
+            out int parityShards)
+        {
+            if (spanLength <= DataSize)
+                throw new ArgumentOutOfRangeException(nameof(spanLength), $"Span length is not from intermediate chunk, it must be greater than {DataSize} bytes");
+            
+            /*
+             * Assume we have a trie of size `span` then we can assume that all the forks except for
+             * the last one on the right are of equal size, this is due to how the splitter wraps levels.
+             * First the algorithm will search for a BMT level where span can be included,
+             * then identify how large data one reference can hold on that level,
+             * then count how many references can satisfy span,
+             * and finally how many parity shards should be on that level.
+             */
+            
+            //branching factor is how many data shard references can fit into one intermediate chunk
+            var branching = (ulong)redundancyLevel.GetMaxDataShards(isEncrypted);
+            
+            // Search for branch level big enough to include span.
+            var branchLevel = 1;
+            ulong branchSize = DataSize;
+            for (; branchSize < spanLength; branchLevel++)
+            {
+                var high = Math.BigMul(branchSize, branching, out branchSize);
+                if (high != 0) //overflow: no chunk trie holds this span
+                {
+                    dataShards = 0;
+                    parityShards = 0;
+                    return false;
+                }
+            }
+            
+            // Span in one full reference. referenceSize = branching ^ (branchLevel - 1)
+            ulong referenceSize = DataSize;
+            for (var i = 1; i < branchLevel - 1; i++)
+                referenceSize *= branching;
+
+            dataShards = (int)(spanLength / referenceSize);
+            if (spanLength % referenceSize != 0)
+                dataShards++;
+
+            parityShards = redundancyLevel.GetParitiesAmount(isEncrypted, dataShards);
+
+            return true;
         }
 
         public static void WriteSpan(ulong length, Span<byte> outputSpan) =>
