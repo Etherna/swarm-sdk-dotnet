@@ -221,6 +221,7 @@ namespace Etherna.SwarmSdk.Chunks
             Dictionary<SwarmReference, SwarmDecodedCacBase> decodedChunksMap = [];
             List<Task> fetchAndRecoverTasks = [];
             List<SwarmReference> nextLevelReferences = [];
+            Dictionary<SwarmReference, ulong> impliedSpanLengths = [];
             List<ChunkParityDecoder> parityDecoders = [];
 
             // Iterate on all levels from root to data chunks. Terminate when no chunks remain.
@@ -233,6 +234,7 @@ namespace Etherna.SwarmSdk.Chunks
                 fetchAndRecoverTasks.Clear();
                 nextLevelReferences.Clear();
                 parityDecoders.Clear();
+                impliedSpanLengths.Clear();
                 
                 // Optimize value search for chunks in level.
                 // Analyzing from right, it can only be monotonically non-decreasing.
@@ -270,10 +272,15 @@ namespace Etherna.SwarmSdk.Chunks
                     }
 
                     // Extract references.
-                    var childReferences = ((SwarmDecodedIntermediateCac)decodedChunk).ChildReferences;
+                    var intermediateChunk = (SwarmDecodedIntermediateCac)decodedChunk;
+                    var childReferences = intermediateChunk.ChildReferences;
 
                     // Find referred data size by data reference.
                     var dataReferencesAmount = childReferences.TakeWhile(r => !r.IsParity).Count();
+
+                    // Each data child must hold the span its parent implies for it, or the tree is malformed.
+                    for (var i = 0; i < dataReferencesAmount; i++)
+                        impliedSpanLengths[childReferences[i].Reference] = intermediateChunk.DataReferenceSpanLengths[i];
                     while (dataSizeBySegment * dataReferencesAmount < spanLength)
                         dataSizeBySegment *= maxDataSegmentsInChunk;
 
@@ -369,7 +376,14 @@ namespace Etherna.SwarmSdk.Chunks
                                  .Select(s => (s.Reference, Chunk: decoder.TryGetChunk(s.Reference.Hash)))
                                  .Where(p => p.Chunk != null)
                                  .Select(p => p.Chunk!.Decode(p.Reference, hasher))))
+                {
+                    if (impliedSpanLengths.TryGetValue(decodedChunk.Reference, out var impliedSpanLength) &&
+                        decodedChunk.SpanLength != impliedSpanLength)
+                        throw new SwarmChunkFormatException(
+                            decodedChunk.Reference.Hash,
+                            $"Chunk {decodedChunk.Reference.Hash} span of {decodedChunk.SpanLength} bytes is not the {impliedSpanLength} bytes its parent implies");
                     decodedChunksMap.Add(decodedChunk.Reference, decodedChunk);
+                }
                 
                 // Copy decoded chunks to new level cache.
                 newLevelsCache.Add([]);

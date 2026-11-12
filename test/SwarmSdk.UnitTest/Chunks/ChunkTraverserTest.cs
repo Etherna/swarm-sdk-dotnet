@@ -1177,8 +1177,83 @@ namespace Etherna.SwarmSdk.Chunks
             Assert.True(foundParities > 0);
             Assert.Empty(notFoundReferences);
         }
+
+        /// <summary>
+        /// Every chunk is well formed on its own, but one doesn't hold the span its parent implies for it: a first
+        /// child shorter than a full section, a last child longer or shorter than what is left of the root span
+        /// </summary>
+        [Theory]
+        [InlineData(20, 4096, 2 * 4096UL, true)]
+        [InlineData(4096, 50, 4096 + 20UL, false)]
+        [InlineData(4096, 20, 4096 + 50UL, false)]
+        public async Task TraverseRejectsATreeWhoseChildIsNotWhatItsParentImplies(
+            int firstChildLength, int lastChildLength, ulong rootSpanLength, bool firstChildOffends)
+        {
+            // Setup.
+            var firstChild = BuildDataChunk(firstChildLength);
+            var lastChild = BuildDataChunk(lastChildLength);
+            var (chunkStore, rootChunk) = await BuildTreeAsync(rootSpanLength, firstChild, lastChild);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunkFormatException>(() =>
+                new ChunkTraverser(chunkStore).TraverseFromDataChunkAsync(
+                    new SwarmReference(rootChunk.Hash, null), null, null,
+                    RedundancyLevel.None, RedundancyStrategy.None, false, false));
+
+            // Assert.
+            Assert.Equal(firstChildOffends ? firstChild.Hash : lastChild.Hash, thrown.Hash);
+            Assert.Contains("its parent implies", thrown.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task TraverseRejectsATreeWhoseLastChildDeclaresMoreThanItHolds()
+        {
+            // Setup.
+            //a last child declaring 100 bytes over 20: the decoder must hand it back as fetched, not padded to its span
+            var lastChild = BuildDataChunk(100, 20);
+            var (chunkStore, rootChunk) = await BuildTreeAsync(SwarmCac.DataSize + 100, BuildDataChunk(SwarmCac.DataSize), lastChild);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunkFormatException>(() =>
+                new ChunkTraverser(chunkStore).TraverseFromDataChunkAsync(
+                    new SwarmReference(rootChunk.Hash, null), null, null,
+                    RedundancyLevel.None, RedundancyStrategy.None, false, false));
+
+            // Assert.
+            Assert.Equal(lastChild.Hash, thrown.Hash);
+            Assert.Contains("not as long as its span", thrown.Message, StringComparison.Ordinal);
+        }
         
         // Helpers.
+        /// <summary>
+        /// A root of two children with the given span, the chunks in a store
+        /// </summary>
+        private static async Task<(MemoryChunkStore ChunkStore, SwarmCac RootChunk)> BuildTreeAsync(
+            ulong rootSpanLength, SwarmCac firstChild, SwarmCac lastChild)
+        {
+            byte[] rootSpanData = [.. SwarmCac.LengthToSpan(rootSpanLength), .. firstChild.Hash.ToByteArray(), .. lastChild.Hash.ToByteArray()];
+            var rootChunk = new SwarmCac(new SwarmChunkBmt().Hash(rootSpanData), rootSpanData);
+            var chunkStore = new MemoryChunkStore();
+            foreach (var chunk in new[] { rootChunk, firstChild, lastChild })
+                await chunkStore.AddAsync(chunk);
+            return (chunkStore, rootChunk);
+        }
+
+        /// <summary>
+        /// A data chunk of the given length, its span declaring it
+        /// </summary>
+        private static SwarmCac BuildDataChunk(int dataLength) =>
+            BuildDataChunk((ulong)dataLength, dataLength);
+
+        /// <summary>
+        /// A data chunk of the given length, its span declaring another
+        /// </summary>
+        private static SwarmCac BuildDataChunk(ulong spanLength, int dataLength)
+        {
+            byte[] spanData = [.. SwarmCac.LengthToSpan(spanLength), .. new byte[dataLength]];
+            return new SwarmCac(new SwarmChunkBmt().Hash(spanData), spanData);
+        }
+
         private static async Task<IChunkStore> BuildChunkStoreAsync(
             RedundancyLevel redundancyLevel)
         {

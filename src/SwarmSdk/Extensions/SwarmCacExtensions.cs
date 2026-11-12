@@ -56,8 +56,8 @@ namespace Etherna.SwarmSdk.Extensions
                     throw new SwarmChunkFormatException(
                         reference.Hash,
                         $"Chunk {reference.Hash} span declares the redundancy level {(int)redundancyLevel}, which doesn't exist");
-                if (!SwarmCac.TryCountIntermediateReferences(
-                        spanLength, redundancyLevel, reference.IsEncrypted, out dataShards, out parities))
+                if (!SwarmCac.TryGetIntermediateLayout(
+                        spanLength, redundancyLevel, reference.IsEncrypted, out dataShards, out parities, out _))
                     throw new SwarmChunkFormatException(
                         reference.Hash,
                         $"Chunk {reference.Hash} span of {spanLength} bytes exceeds the content a chunk trie can hold");

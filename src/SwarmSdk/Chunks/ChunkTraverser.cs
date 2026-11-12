@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Extensions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Manifest;
@@ -232,28 +233,33 @@ namespace Etherna.SwarmSdk.Chunks
             bool includeParities,
             CancellationToken cancellationToken)
         {
-            Queue<(SwarmCac Chunk, SwarmReference Reference)> chunkRefPairs = [];
+            Queue<(SwarmCac Chunk, SwarmReference Reference, ulong? ImpliedSpanLength)> chunkRefPairs = [];
             var hasher = new Hasher();
             
             // Run levels iteration starting from root chunk.
-            chunkRefPairs.Enqueue((rootCac, rootReference));
+            chunkRefPairs.Enqueue((rootCac, rootReference, null));
             while (chunkRefPairs.Count > 0)
             {
-                var (chunk, reference) = chunkRefPairs.Dequeue();
+                var (chunk, reference, impliedSpanLength) = chunkRefPairs.Dequeue();
                 
                 // Try to add the reference to visited refs. Continue if already present.
                 if (!visitedReferences.Add(reference))
                     continue;
                 
-                // Decode chunk.
+                // Decode chunk. A child must hold the span its parent implies for it, or the tree is malformed.
                 var decodedChunk = chunk.Decode(reference, hasher);
+                if (impliedSpanLength is { } parentSpanLength && decodedChunk.SpanLength != parentSpanLength)
+                    throw new SwarmChunkFormatException(
+                        reference.Hash,
+                        $"Chunk {reference.Hash} span of {decodedChunk.SpanLength} bytes is not the {parentSpanLength} bytes its parent implies");
                 
                 // Skip iteration on data chunks.
                 if (decodedChunk.IsDataChunk)
                     continue;
                 
                 // If intermediate chunk, extract child references.
-                var childReferences = ((SwarmDecodedIntermediateCac)decodedChunk).ChildReferences;
+                var intermediateChunk = (SwarmDecodedIntermediateCac)decodedChunk;
+                var childReferences = intermediateChunk.ChildReferences;
                     
                 // Run fetch and recover with parity asynchronously.
                 var decoder = new ChunkParityDecoder(childReferences, chunkStore);
@@ -265,8 +271,13 @@ namespace Etherna.SwarmSdk.Chunks
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 
                 // Try to iterate on child chunks from decoder.
+                var dataReferenceIndex = 0;
                 foreach (var childReference in childReferences.Where(r => !r.IsParity || includeParities))
                 {
+                    ulong? childSpanLength = null;
+                    if (!childReference.IsParity)
+                        childSpanLength = intermediateChunk.DataReferenceSpanLengths[dataReferenceIndex++];
+
                     // Try to get the chunk.
                     var childChunk = decoder.TryGetChunk(childReference.Reference.Hash);
                     if (childChunk == null)
@@ -279,7 +290,7 @@ namespace Etherna.SwarmSdk.Chunks
 
                         //a parity chunk is the erasure code of its siblings: no span, no references, nothing to walk
                         if (!childReference.IsParity)
-                            chunkRefPairs.Enqueue((childChunk, childReference.Reference));
+                            chunkRefPairs.Enqueue((childChunk, childReference.Reference, childSpanLength));
                     }
                 }
             }

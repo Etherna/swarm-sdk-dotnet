@@ -38,6 +38,7 @@ namespace Etherna.SwarmSdk.Chunks
 
         private readonly SwarmShardReference[] _shardReferences;
         private readonly byte[][] shardsBuffer; //byte[i] could be null when relative chunk is not present
+        private readonly int[] fetchedLengths; //0 when the shard was not fetched: absent, or recovered
 
         private readonly int dataShardsAmount;
 
@@ -62,6 +63,7 @@ namespace Etherna.SwarmSdk.Chunks
             this.chunkStore = chunkStore;
             _shardReferences = shardReferences.ToArray();
             shardsBuffer = new byte[_shardReferences.Length][];
+            fetchedLengths = new int[_shardReferences.Length];
             dataShardsAmount = _shardReferences.Count(r => !r.IsParity);
 
             for (var i = 0; i < _shardReferences.Length; i++)
@@ -187,6 +189,7 @@ namespace Etherna.SwarmSdk.Chunks
                     var spanData = new byte[SwarmCac.SpanDataSize];
                     chunk.GetFullPayload().CopyTo(spanData);
                     shardsBuffer[hashIndexMap[hash]] = spanData;
+                    fetchedLengths[hashIndexMap[hash]] = chunk.GetFullPayload().Length;
                 }
                 else
                     missingChunks = true;
@@ -330,7 +333,11 @@ namespace Etherna.SwarmSdk.Chunks
                 shardsBuffer[i] == null!)
                 return null;
 
-            // If is not last chunk, or if is encrypted, simply read from buffer.
+            // A fetched chunk is handed back as it was fetched: the padding of its buffer serves the recovery only.
+            if (fetchedLengths[i] > 0)
+                return new SwarmCac(hash, shardsBuffer[i].AsMemory(0, fetchedLengths[i]));
+
+            // A recovered chunk fills its buffer. If is not last chunk, or if is encrypted, read it whole.
             if (i != dataShardsAmount - 1 || _shardReferences[i].Reference.IsEncrypted)
                 return new SwarmCac(hash, shardsBuffer[i]);
 
@@ -344,8 +351,8 @@ namespace Etherna.SwarmSdk.Chunks
             if (spanLength <= SwarmCac.DataSize)
                 dataLength = (int)spanLength;
             else if (Enum.IsDefined(redundancyLevel) &&
-                     SwarmCac.TryCountIntermediateReferences(
-                         spanLength, redundancyLevel, false, out var dataShards, out var parityShards))
+                     SwarmCac.TryGetIntermediateLayout(
+                         spanLength, redundancyLevel, false, out var dataShards, out var parityShards, out _))
                 dataLength = SwarmCac.CalculatePlainDataLength(dataShards, parityShards, false);
 
             return new SwarmCac(hash, shardsBuffer[i].AsMemory(0, SwarmCac.SpanSize + dataLength));
@@ -458,6 +465,7 @@ namespace Etherna.SwarmSdk.Chunks
                     var spanData = new byte[SwarmCac.SpanDataSize];
                     chunk.GetFullPayload().CopyTo(spanData);
                     shardsBuffer[shardIndex] = spanData;
+                    fetchedLengths[shardIndex] = chunk.GetFullPayload().Length;
 
                     // Update results.
                     fetchResults[shardIndex] = true;

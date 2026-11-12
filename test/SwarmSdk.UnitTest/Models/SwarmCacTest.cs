@@ -234,5 +234,18 @@ namespace Etherna.SwarmSdk.Models
                 test.EncryptedDataReferences);
             Assert.Equal(test.ExpectedShardReferences, references);
         }
+
+        [Theory]
+        [InlineData(4097UL, RedundancyLevel.None, false, new ulong[] { 4096, 1 })]
+        [InlineData(3 * 4096UL, RedundancyLevel.None, false, new ulong[] { 4096, 4096, 4096 })]
+        [InlineData(128 * 4096UL + 1, RedundancyLevel.None, false, new ulong[] { 128 * 4096UL, 1 })]
+        [InlineData(2 * 4096UL + 5, RedundancyLevel.Medium, true, new ulong[] { 4096, 4096, 5 })]
+        public void GetDataReferenceSpanLengthsGivesAFullSectionToEveryReferenceButTheLast(
+            ulong spanLength, RedundancyLevel redundancyLevel, bool isEncrypted, ulong[] expectedSpanLengths)
+        {
+            var spanLengths = SwarmCac.GetDataReferenceSpanLengths(spanLength, redundancyLevel, isEncrypted);
+
+            Assert.Equal(expectedSpanLengths, spanLengths);
+        }
     }
 }

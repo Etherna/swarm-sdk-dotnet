@@ -33,11 +33,18 @@ namespace Etherna.SwarmSdk.Models
                     nameof(SpanLength), $"Span length of intermediate chunks must be greater than {SwarmCac.DataSize}");
                 
             ChildReferences = SwarmCac.GetIntermediateReferencesFromData(Data.Span, Parities, IsEncrypted);
+            DataReferenceSpanLengths = SwarmCac.GetDataReferenceSpanLengths(SpanLength, RedundancyLevel, IsEncrypted);
             this.RedundancyLevel = RedundancyLevel;
         }
         
         // Properties.
         public IReadOnlyList<SwarmShardReference> ChildReferences { get; }
+
+        /// <summary>
+        /// The span of the content each data reference covers, in the order of the data references: a full section
+        /// for every reference but the last, what is left of the span for the last
+        /// </summary>
+        public IReadOnlyList<ulong> DataReferenceSpanLengths { get; }
         public override bool IsDataChunk => false;
     }
 }
