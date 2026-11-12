@@ -15,18 +15,94 @@
 using Etherna.SwarmSdk.Chunks;
 using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
+using Etherna.SwarmSdk.Hashing.Pipeline;
+using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
+using Etherna.SwarmSdk.Stores;
 using System;
 using System.Buffers.Binary;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Etherna.SwarmSdk.Extensions
 {
     public class SwarmCacExtensionsTest
     {
+        // Data.
+        public static TheoryData<RedundancyLevel, bool, int> PipelineContents()
+        {
+            //every level, plain and encrypted, from an empty content to a tree of three levels
+            var contents = new TheoryData<RedundancyLevel, bool, int>();
+            foreach (var level in Enum.GetValues<RedundancyLevel>())
+                foreach (var encrypted in new[] { false, true })
+                    foreach (var size in new[] { 0, 1, SwarmCac.DataSize, SwarmCac.DataSize + 1, SwarmCac.DataSize * 128, SwarmCac.DataSize * 128 + 1 })
+                        contents.Add(level, encrypted, size);
+            return contents;
+        }
+
         // Tests.
+        /// <summary>
+        /// Every chunk the pipeline writes decodes under its reference, with the data its span declares or the references
+        /// its span implies, and the content reads back through the decode
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(PipelineContents))]
+        public async Task DecodeAcceptsEveryChunkThePipelineWrites(RedundancyLevel level, bool encrypted, int size)
+        {
+            // Setup.
+            var data = new byte[size];
+            new Random(size).NextBytes(data);
+            var chunkStore = new MemoryChunkStore();
+            SwarmReference rootReference;
+            using (var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                       chunkStore, new FakePostageStamper(), level, encrypted, 0, null))
+            {
+                await using var dataStream = new MemoryStream(data);
+                rootReference = await pipeline.HashDataAsync(dataStream);
+            }
+            var hasher = new Hasher();
+            var decodedChunks = 0;
+            var notFoundReferences = 0;
+
+            // Run.
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                (chunk, shardReference) =>
+                {
+                    var decoded = ((SwarmCac)chunk).Decode(shardReference.Reference, hasher);
+                    decodedChunks++;
+
+                    Assert.Equal(encrypted, decoded.IsEncrypted);
+                    if (decoded is SwarmDecodedDataCac dataChunk)
+                        Assert.Equal((int)decoded.SpanLength, dataChunk.Data.Length);
+                    else
+                    {
+                        var intermediateChunk = (SwarmDecodedIntermediateCac)decoded;
+                        Assert.True(SwarmCac.TryCountIntermediateReferences(
+                            decoded.SpanLength, decoded.RedundancyLevel, encrypted, out var dataShards, out var parityShards));
+                        Assert.Equal(dataShards + parityShards, intermediateChunk.ChildReferences.Count);
+                        Assert.Equal(parityShards, intermediateChunk.Parities);
+                    }
+                    return Task.CompletedTask;
+                },
+                null,
+                _ => { notFoundReferences++; return Task.CompletedTask; },
+                level,
+                RedundancyStrategy.Data,
+                false);
+            await using var contentStream = await ChunkDataStream.BuildNewAsync(
+                rootReference, chunkStore, level, RedundancyStrategy.Data, false);
+            var readData = await contentStream.ToByteArrayAsync();
+
+            // Assert.
+            Assert.True(decodedChunks > 0);
+            Assert.Equal(0, notFoundReferences);
+            Assert.Equal(data, readData);
+        }
+
         [Fact]
         public void DecodeRejectsAChunkOfAnotherReference()
         {
