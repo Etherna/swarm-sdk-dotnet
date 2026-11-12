@@ -276,7 +276,10 @@ namespace Etherna.SwarmSdk.Chunks
                     else
                     {
                         await onChunkFound(childChunk, childReference).ConfigureAwait(false);
-                        chunkRefPairs.Enqueue((childChunk, childReference.Reference));
+
+                        //a parity chunk is the erasure code of its siblings: no span, no references, nothing to walk
+                        if (!childReference.IsParity)
+                            chunkRefPairs.Enqueue((childChunk, childReference.Reference));
                     }
                 }
             }
