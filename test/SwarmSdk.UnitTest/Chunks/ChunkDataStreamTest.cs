@@ -12,15 +12,19 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
+using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Buffers.Binary;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -325,6 +329,38 @@ namespace Etherna.SwarmSdk.Chunks
             var result = memoryStream.ToArray();
             
             Assert.Equal(test.Data, result);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ReadRejectsATreeWhoseLastChunkIsNotWellFormed(bool undefinedRedundancyLevel)
+        {
+            // Setup.
+            //a root of two children: a full data chunk, and a last one whose span is not the one of a chunk, either
+            //for the content it declares or for its redundancy level
+            var bmt = new SwarmChunkBmt();
+            var fullSpanData = SwarmCac.BuildFromData(SwarmHash.Zero, new byte[SwarmCac.DataSize]).SpanData;
+            var fullChunk = new SwarmCac(bmt.Hash(fullSpanData), fullSpanData);
+            var lastSpanData = Encoding.UTF8.GetBytes("second update of the feed, written as plain text");
+            if (undefinedRedundancyLevel)
+                lastSpanData[SwarmCac.SpanSize - 1] = 0xFF;
+            var lastChunk = new SwarmCac(bmt.Hash(lastSpanData), lastSpanData);
+            var rootSpan = new byte[SwarmCac.SpanSize];
+            BinaryPrimitives.WriteUInt64LittleEndian(rootSpan, SwarmCac.DataSize + 20);
+            byte[] rootSpanData = [.. rootSpan, .. fullChunk.Hash.ToByteArray(), .. lastChunk.Hash.ToByteArray()];
+            var rootChunk = new SwarmCac(bmt.Hash(rootSpanData), rootSpanData);
+            var chunkStore = new MemoryChunkStore();
+            foreach (var chunk in new[] { rootChunk, fullChunk, lastChunk })
+                await chunkStore.AddAsync(chunk);
+            await using var chunkDataStream = ChunkDataStream.BuildNew(
+                rootChunk, chunkStore, RedundancyStrategy.None, false);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunkFormatException>(() => chunkDataStream.ToByteArrayAsync());
+
+            // Assert.
+            Assert.Equal(lastChunk.Hash, thrown.Hash);
         }
     }
 }
