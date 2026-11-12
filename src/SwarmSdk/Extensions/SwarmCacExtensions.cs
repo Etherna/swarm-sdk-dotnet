@@ -34,59 +34,65 @@ namespace Etherna.SwarmSdk.Extensions
                     reference.Hash,
                     $"Chunk's hash {chunk.Hash} does not match reference {reference}");
 
-            // Decrypt and decode span.
-            ReadOnlyMemory<byte> plainData;
-            RedundancyLevel redundancyLevel;
-            ulong spanLength;
+            // Read the span, decrypting it alone when the reference carries a key: what it declares is validated
+            // before the data is read. Whatever doesn't pass is not a chunk, even if it hashes to the address.
+            var span = chunk.Span;
             if (reference.IsEncrypted)
             {
-                // Decrypt span.
                 var spanBuffer = new byte[SwarmCac.SpanSize];
+                ChunkEncrypter.DecryptSpan(chunk.Span.Span, reference.EncryptionKey!.Value, spanBuffer, hasher);
+                span = spanBuffer;
+            }
+            var redundancyLevel = SwarmCac.SpanToRedundancyLevel(span.Span);
+            var spanLength = SwarmCac.SpanToLength(span.Span);
+
+            //a span larger than a chunk makes it an intermediate one, holding the references of its children: its
+            //redundancy level must exist, and some chunk trie must be able to hold its content
+            var isDataChunk = spanLength <= SwarmCac.DataSize;
+            var (dataShards, parities) = (0, 0);
+            if (!isDataChunk)
+            {
+                if (!Enum.IsDefined(redundancyLevel))
+                    throw new SwarmChunkFormatException(
+                        reference.Hash,
+                        $"Chunk {reference.Hash} span declares the redundancy level {(int)redundancyLevel}, which doesn't exist");
+                if (!SwarmCac.TryCountIntermediateReferences(
+                        spanLength, redundancyLevel, reference.IsEncrypted, out dataShards, out parities))
+                    throw new SwarmChunkFormatException(
+                        reference.Hash,
+                        $"Chunk {reference.Hash} span of {spanLength} bytes exceeds the content a chunk trie can hold");
+            }
+            var dataLength = isDataChunk ?
+                (int)spanLength :
+                SwarmCac.CalculatePlainDataLength(dataShards, parities, reference.IsEncrypted);
+
+            // Read the data, as long as the span implies. An encrypted chunk is always a full one, padded: the
+            // padding is cut off after the decryption.
+            ReadOnlyMemory<byte> plainData;
+            if (reference.IsEncrypted)
+            {
+                if (chunk.Data.Length != SwarmCac.DataSize)
+                    throw new SwarmChunkFormatException(
+                        reference.Hash,
+                        $"Chunk {reference.Hash} data of {chunk.Data.Length} bytes doesn't fill the chunk, as an encrypted one does");
                 var dataBuffer = new byte[SwarmCac.DataSize];
-                var dataLength = ChunkEncrypter.DecryptChunk(
-                    chunk,
-                    reference.EncryptionKey!.Value,
-                    spanBuffer,
-                    dataBuffer,
-                    hasher);
-                
+                ChunkEncrypter.DecryptData(chunk.Data.Span, reference.EncryptionKey!.Value, dataBuffer, hasher);
                 plainData = dataBuffer.AsMemory(0, dataLength);
-                redundancyLevel = SwarmCac.SpanToRedundancyLevel(spanBuffer);
-                spanLength = SwarmCac.SpanToLength(spanBuffer);
             }
             else
             {
+                if (chunk.Data.Length != dataLength)
+                    throw new SwarmChunkFormatException(
+                        reference.Hash,
+                        isDataChunk ?
+                            $"Chunk {reference.Hash} data of {chunk.Data.Length} bytes is not as long as its span of {spanLength} bytes declares" :
+                            $"Chunk {reference.Hash} data of {chunk.Data.Length} bytes doesn't hold the {dataShards} data and {parities} parity references its span of {spanLength} bytes implies");
                 plainData = chunk.Data;
-                redundancyLevel = SwarmCac.SpanToRedundancyLevel(chunk.Span.Span);
-                spanLength = SwarmCac.SpanToLength(chunk.Span.Span);
             }
 
-            //if data chunk
-            if (spanLength <= SwarmCac.DataSize)
-            {
-                return new SwarmDecodedDataCac(
-                    reference,
-                    spanLength,
-                    plainData);
-            }
-
-            //if intermediate chunk: a well formed one has a span some chunk trie can hold, and holds exactly the
-            //references that span implies. Anything else is not a chunk, whatever hashes to the address
-            if (!SwarmCac.TryCountIntermediateReferences(
-                    spanLength, redundancyLevel, reference.IsEncrypted, out var dataShards, out var parities))
-                throw new SwarmChunkFormatException(
-                    reference.Hash,
-                    $"Chunk {reference.Hash} span of {spanLength} bytes exceeds the content a chunk trie can hold");
-            if (plainData.Length != SwarmCac.CalculatePlainDataLength(dataShards, parities, reference.IsEncrypted))
-                throw new SwarmChunkFormatException(
-                    reference.Hash,
-                    $"Chunk {reference.Hash} data of {plainData.Length} bytes doesn't hold the {dataShards} data and {parities} parity references its span of {spanLength} bytes implies");
-            return new SwarmDecodedIntermediateCac(
-                reference,
-                redundancyLevel,
-                parities,
-                spanLength,
-                plainData);
+            if (isDataChunk)
+                return new SwarmDecodedDataCac(reference, spanLength, plainData);
+            return new SwarmDecodedIntermediateCac(reference, redundancyLevel, parities, spanLength, plainData);
         }
     }
 }

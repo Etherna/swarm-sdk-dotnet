@@ -102,8 +102,8 @@ namespace Etherna.SwarmSdk.Chunks
                 throw new ArgumentException($"{nameof(decryptedData)} must have size {SwarmCac.DataSize}");
 
             // Decrypt.
-            Transform(chunkSpan, key, SwarmCac.DataSize / EncryptionKey256.KeySize, decryptedSpan, hasher, null);
-            Transform(chunkData, key, 0, decryptedData, hasher, null);
+            DecryptSpan(chunkSpan, key, decryptedSpan, hasher);
+            DecryptData(chunkData, key, decryptedData, hasher);
 
             // Calculate real data length removing added padding.
             var level = SwarmCac.SpanToRedundancyLevel(decryptedSpan);
@@ -259,6 +259,27 @@ namespace Etherna.SwarmSdk.Chunks
                 hasher,
                 paddingBytes);
         }
+
+        // Internals.
+        /// <summary>
+        /// Decrypt the data of a chunk, keeping its padding
+        /// </summary>
+        internal static void DecryptData(
+            ReadOnlySpan<byte> chunkData,
+            EncryptionKey256 key,
+            Span<byte> decryptedData,
+            Hasher hasher) =>
+            Transform(chunkData, key, 0, decryptedData, hasher, null);
+
+        /// <summary>
+        /// Decrypt the span of a chunk
+        /// </summary>
+        internal static void DecryptSpan(
+            ReadOnlySpan<byte> chunkSpan,
+            EncryptionKey256 key,
+            Span<byte> decryptedSpan,
+            Hasher hasher) =>
+            Transform(chunkSpan, key, SwarmCac.DataSize / EncryptionKey256.KeySize, decryptedSpan, hasher, null);
 
         // Helpers.
         private static void Transform(

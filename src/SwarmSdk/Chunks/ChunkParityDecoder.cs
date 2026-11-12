@@ -334,13 +334,21 @@ namespace Etherna.SwarmSdk.Chunks
             if (i != dataShardsAmount - 1 || _shardReferences[i].Reference.IsEncrypted)
                 return new SwarmCac(hash, shardsBuffer[i]);
 
-            // Else, if is last chunk and not encrypted, try to remove possible padding.
+            // Else, if is last chunk and not encrypted, try to remove possible padding. A span that is not the one of
+            // a well formed chunk gives no length to cut at: the buffer is handed back whole, for the decode to refuse.
             ReadOnlySpan<byte> span = shardsBuffer[i].AsSpan()[..SwarmCac.SpanSize];
             var spanLength = SwarmCac.DecodedSpanToLength(SwarmCac.IsSpanEncoded(span) ? SwarmCac.DecodeSpan(span) : span);
             var redundancyLevel = SwarmCac.SpanToRedundancyLevel(span);
 
-            return new SwarmCac(hash, shardsBuffer[i].AsMemory(0,
-                SwarmCac.SpanSize + SwarmCac.CalculatePlainDataLength(spanLength, redundancyLevel, false)));
+            var dataLength = SwarmCac.DataSize;
+            if (spanLength <= SwarmCac.DataSize)
+                dataLength = (int)spanLength;
+            else if (Enum.IsDefined(redundancyLevel) &&
+                     SwarmCac.TryCountIntermediateReferences(
+                         spanLength, redundancyLevel, false, out var dataShards, out var parityShards))
+                dataLength = SwarmCac.CalculatePlainDataLength(dataShards, parityShards, false);
+
+            return new SwarmCac(hash, shardsBuffer[i].AsMemory(0, SwarmCac.SpanSize + dataLength));
         }
 
         /// <summary>
