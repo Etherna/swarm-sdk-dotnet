@@ -22,6 +22,7 @@ using Etherna.SwarmSdk.Services;
 using Etherna.SwarmSdk.Stores;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
@@ -1122,6 +1123,59 @@ namespace Etherna.SwarmSdk.Chunks
             Assert.Equal(test.ExpectedFoundReferences, foundChunkReferences);
             Assert.Equal(test.ExpectedNotFoundReferences, notFoundChunkReferences);
             Assert.Empty(invalidFoundChunkReferences);
+        }
+
+        /// <summary>
+        /// A parity chunk is reported as found with its shard reference, and never decoded as a content chunk
+        /// </summary>
+        [Theory]
+        [InlineData(RedundancyLevel.Medium, false)]
+        [InlineData(RedundancyLevel.Medium, true)]
+        [InlineData(RedundancyLevel.Strong, false)]
+        [InlineData(RedundancyLevel.Insane, true)]
+        [InlineData(RedundancyLevel.Paranoid, false)]
+        [InlineData(RedundancyLevel.Paranoid, true)]
+        public async Task TraverseWithParitiesFindsEveryChunkThePipelineWrote(RedundancyLevel level, bool encrypted)
+        {
+            // Setup.
+            //a content of two data chunks, the last one partial, and their parities
+            var data = new byte[SwarmCac.DataSize + 1];
+            new Random(42).NextBytes(data);
+            var chunkStore = new MemoryChunkStore();
+            SwarmReference rootReference;
+            using (var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                       chunkStore, new FakePostageStamper(), level, encrypted, 0, null))
+            {
+                await using var dataStream = new MemoryStream(data);
+                rootReference = await pipeline.HashDataAsync(dataStream);
+            }
+            HashSet<SwarmHash> foundHashes = [];
+            var foundParities = 0;
+            List<SwarmReference> notFoundReferences = [];
+
+            // Run.
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                (chunk, shardReference) =>
+                {
+                    foundHashes.Add(chunk.Hash);
+                    if (shardReference.IsParity)
+                        foundParities++;
+                    return Task.CompletedTask;
+                },
+                null,
+                r => { notFoundReferences.Add(r.Reference); return Task.CompletedTask; },
+                level,
+                RedundancyStrategy.Data,
+                false,
+                includeParities: true);
+
+            // Assert.
+            //the pipeline also writes the replicas of the root, single owner chunks out of the tree
+            var writtenCacHashes = chunkStore.AllChunks.Values.OfType<SwarmCac>().Select(c => c.Hash);
+            Assert.True(foundHashes.SetEquals(writtenCacHashes), "the chunks found are not the content addressed chunks written");
+            Assert.True(foundParities > 0);
+            Assert.Empty(notFoundReferences);
         }
         
         // Helpers.
