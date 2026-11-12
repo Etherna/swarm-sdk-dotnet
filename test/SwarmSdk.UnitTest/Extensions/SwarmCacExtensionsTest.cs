@@ -81,8 +81,8 @@ namespace Etherna.SwarmSdk.Extensions
                     else
                     {
                         var intermediateChunk = (SwarmDecodedIntermediateCac)decoded;
-                        Assert.True(SwarmCac.TryCountIntermediateReferences(
-                            decoded.SpanLength, decoded.RedundancyLevel, encrypted, out var dataShards, out var parityShards));
+                        Assert.True(SwarmCac.TryGetIntermediateLayout(
+                            decoded.SpanLength, decoded.RedundancyLevel, encrypted, out var dataShards, out var parityShards, out _));
                         Assert.Equal(dataShards + parityShards, intermediateChunk.ChildReferences.Count);
                         Assert.Equal(parityShards, intermediateChunk.Parities);
                     }

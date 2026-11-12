@@ -118,7 +118,7 @@ namespace Etherna.SwarmSdk.Models
             RedundancyLevel redundancyLevel,
             bool isEncrypted)
         {
-            if (!TryCountIntermediateReferences(spanLength, redundancyLevel, isEncrypted, out var dataShards, out var parityShards))
+            if (!TryGetIntermediateLayout(spanLength, redundancyLevel, isEncrypted, out var dataShards, out var parityShards, out _))
                 throw new OverflowException($"branchSize overflow with spanLength at {spanLength} bytes");
             return (dataShards, parityShards);
         }
@@ -178,6 +178,26 @@ namespace Etherna.SwarmSdk.Models
 
             // Set redundancy level in the most significant byte.
             span[SpanSize - 1] = (byte)(level + 128);
+        }
+
+        /// <summary>
+        /// The span of the content each data reference of an intermediate chunk covers: a full section for every
+        /// reference but the last, what is left of the span for the last
+        /// </summary>
+        /// <exception cref="OverflowException">No chunk trie can hold a content of the span length</exception>
+        public static ulong[] GetDataReferenceSpanLengths(
+            ulong spanLength,
+            RedundancyLevel redundancyLevel,
+            bool isEncrypted)
+        {
+            if (!TryGetIntermediateLayout(
+                    spanLength, redundancyLevel, isEncrypted, out var dataShards, out _, out var referenceSpanLength))
+                throw new OverflowException($"branchSize overflow with spanLength at {spanLength} bytes");
+
+            var spanLengths = new ulong[dataShards];
+            Array.Fill(spanLengths, referenceSpanLength, 0, dataShards - 1);
+            spanLengths[^1] = spanLength - (ulong)(dataShards - 1) * referenceSpanLength;
+            return spanLengths;
         }
 
         public static SwarmShardReference[] GetIntermediateReferencesFromData(
@@ -266,15 +286,17 @@ namespace Etherna.SwarmSdk.Models
         }
 
         /// <summary>
-        /// Count the data and parity references an intermediate chunk of the given span holds
+        /// The layout of an intermediate chunk of the given span: how many data and parity references it holds, and
+        /// the span each data reference but the last covers
         /// </summary>
         /// <returns>False when no chunk trie can hold a content of the span length</returns>
-        public static bool TryCountIntermediateReferences(
+        public static bool TryGetIntermediateLayout(
             ulong spanLength,
             RedundancyLevel redundancyLevel,
             bool isEncrypted,
             out int dataShards,
-            out int parityShards)
+            out int parityShards,
+            out ulong referenceSpanLength)
         {
             if (spanLength <= DataSize)
                 throw new ArgumentOutOfRangeException(nameof(spanLength), $"Span length is not from intermediate chunk, it must be greater than {DataSize} bytes");
@@ -301,17 +323,18 @@ namespace Etherna.SwarmSdk.Models
                 {
                     dataShards = 0;
                     parityShards = 0;
+                    referenceSpanLength = 0;
                     return false;
                 }
             }
             
-            // Span in one full reference. referenceSize = branching ^ (branchLevel - 1)
-            ulong referenceSize = DataSize;
+            // Span in one full reference. referenceSpanLength = DataSize * branching ^ (branchLevel - 1)
+            referenceSpanLength = DataSize;
             for (var i = 1; i < branchLevel - 1; i++)
-                referenceSize *= branching;
+                referenceSpanLength *= branching;
 
-            dataShards = (int)(spanLength / referenceSize);
-            if (spanLength % referenceSize != 0)
+            dataShards = (int)(spanLength / referenceSpanLength);
+            if (spanLength % referenceSpanLength != 0)
                 dataShards++;
 
             parityShards = redundancyLevel.GetParitiesAmount(isEncrypted, dataShards);

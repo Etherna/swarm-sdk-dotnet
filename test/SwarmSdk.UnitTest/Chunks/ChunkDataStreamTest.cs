@@ -312,6 +312,17 @@ namespace Etherna.SwarmSdk.Chunks
         }
         
 
+        public static TheoryData<RedundancyLevel, bool, int> RedundantContents()
+        {
+            //every redundant level, plain and encrypted, a tree of two and of three levels
+            var contents = new TheoryData<RedundancyLevel, bool, int>();
+            foreach (var level in new[] { RedundancyLevel.Medium, RedundancyLevel.Strong, RedundancyLevel.Insane, RedundancyLevel.Paranoid })
+                foreach (var encrypted in new[] { false, true })
+                    foreach (var size in new[] { SwarmCac.DataSize + 1, SwarmCac.DataSize * 128 + 1 })
+                        contents.Add(level, encrypted, size);
+            return contents;
+        }
+
         // Tests.
         [Theory, ClassData(typeof(JoinChunkDataClassData))]
         public async Task JoinChunkData(JoinChunkDataTestElement test)
@@ -361,6 +372,140 @@ namespace Etherna.SwarmSdk.Chunks
 
             // Assert.
             Assert.Equal(lastChunk.Hash, thrown.Hash);
+        }
+
+        /// <summary>
+        /// The first and the last chunk under the root are gone: the read recovers them from the parities, and what
+        /// was fetched is read as fetched, what was recovered is cut at its span. Then a few seeks across the content
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(RedundantContents))]
+        public async Task ReadRecoversTheChunksRemovedFromEveryRedundantContentThePipelineWrites(
+            RedundancyLevel level, bool encrypted, int size)
+        {
+            // Setup.
+            var data = new byte[size];
+            new Random(size).NextBytes(data);
+            var chunkStore = new MemoryChunkStore();
+            SwarmReference rootReference;
+            using (var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                       chunkStore, new FakePostageStamper(), level, encrypted, 0, null))
+            {
+                await using var dataStream = new MemoryStream(data);
+                rootReference = await pipeline.HashDataAsync(dataStream);
+            }
+            List<SwarmHash> dataChunkHashes = [];
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                (chunk, shardReference) =>
+                {
+                    if (!shardReference.IsParity && chunk.Hash != rootReference.Hash)
+                        dataChunkHashes.Add(chunk.Hash);
+                    return Task.CompletedTask;
+                },
+                null, null, level, RedundancyStrategy.Data, false);
+            Assert.True(await chunkStore.RemoveAsync(dataChunkHashes[0]));
+            Assert.True(await chunkStore.RemoveAsync(dataChunkHashes[^1]));
+
+            // Run.
+            await using var chunkDataStream = await ChunkDataStream.BuildNewAsync(
+                rootReference, chunkStore, level, RedundancyStrategy.Data, true);
+            var readData = await chunkDataStream.ToByteArrayAsync();
+            var rangesRead = new List<(int Offset, byte[] Bytes)>();
+            foreach (var (offset, length) in new[] { (0, 10), (size / 2, 300), (size - 1, 1) })
+            {
+                chunkDataStream.Seek(offset, SeekOrigin.Begin);
+                var buffer = new byte[length];
+                var read = 0;
+                while (read < length)
+                {
+                    var n = await chunkDataStream.ReadAsync(buffer.AsMemory(read));
+                    if (n == 0) break;
+                    read += n;
+                }
+                rangesRead.Add((offset, buffer[..read]));
+            }
+
+            // Assert.
+            Assert.Equal(data, readData);
+            foreach (var (offset, bytes) in rangesRead)
+                Assert.Equal(data[offset..(offset + bytes.Length)], bytes);
+            Assert.Equal(3, rangesRead.Count);
+            Assert.All(rangesRead, r => Assert.True(r.Bytes.Length > 0));
+        }
+
+        /// <summary>
+        /// Every chunk is well formed on its own, but one doesn't hold the span its parent implies for it: a first
+        /// child shorter than a full section, a last child longer or shorter than what is left of the root span
+        /// </summary>
+        [Theory]
+        [InlineData(20, 4096, 2 * 4096UL, true)]
+        [InlineData(4096, 50, 4096 + 20UL, false)]
+        [InlineData(4096, 20, 4096 + 50UL, false)]
+        public async Task ReadRejectsATreeWhoseChildIsNotWhatItsParentImplies(
+            int firstChildLength, int lastChildLength, ulong rootSpanLength, bool firstChildOffends)
+        {
+            // Setup.
+            var firstChild = BuildDataChunk(firstChildLength);
+            var lastChild = BuildDataChunk(lastChildLength);
+            var (chunkStore, rootChunk) = await BuildTreeAsync(rootSpanLength, firstChild, lastChild);
+            await using var chunkDataStream = ChunkDataStream.BuildNew(
+                rootChunk, chunkStore, RedundancyStrategy.None, false);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunkFormatException>(() => chunkDataStream.ToByteArrayAsync());
+
+            // Assert.
+            Assert.Equal(firstChildOffends ? firstChild.Hash : lastChild.Hash, thrown.Hash);
+            Assert.Contains("its parent implies", thrown.Message, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public async Task ReadRejectsATreeWhoseLastChildDeclaresMoreThanItHolds()
+        {
+            // Setup.
+            //a last child declaring 100 bytes over 20: the decoder must hand it back as fetched, not padded to its span
+            var lastChild = BuildDataChunk(100, 20);
+            var (chunkStore, rootChunk) = await BuildTreeAsync(SwarmCac.DataSize + 100, BuildDataChunk(SwarmCac.DataSize), lastChild);
+            await using var chunkDataStream = ChunkDataStream.BuildNew(
+                rootChunk, chunkStore, RedundancyStrategy.None, false);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunkFormatException>(() => chunkDataStream.ToByteArrayAsync());
+
+            // Assert.
+            Assert.Equal(lastChild.Hash, thrown.Hash);
+            Assert.Contains("not as long as its span", thrown.Message, StringComparison.Ordinal);
+        }
+
+        // Helpers.
+        /// <summary>
+        /// A root of two children with the given span, the chunks in a store
+        /// </summary>
+        private static async Task<(MemoryChunkStore ChunkStore, SwarmCac RootChunk)> BuildTreeAsync(
+            ulong rootSpanLength, SwarmCac firstChild, SwarmCac lastChild)
+        {
+            byte[] rootSpanData = [.. SwarmCac.LengthToSpan(rootSpanLength), .. firstChild.Hash.ToByteArray(), .. lastChild.Hash.ToByteArray()];
+            var rootChunk = new SwarmCac(new SwarmChunkBmt().Hash(rootSpanData), rootSpanData);
+            var chunkStore = new MemoryChunkStore();
+            foreach (var chunk in new[] { rootChunk, firstChild, lastChild })
+                await chunkStore.AddAsync(chunk);
+            return (chunkStore, rootChunk);
+        }
+
+        /// <summary>
+        /// A data chunk of the given length, its span declaring it
+        /// </summary>
+        private static SwarmCac BuildDataChunk(int dataLength) =>
+            BuildDataChunk((ulong)dataLength, dataLength);
+
+        /// <summary>
+        /// A data chunk of the given length, its span declaring another
+        /// </summary>
+        private static SwarmCac BuildDataChunk(ulong spanLength, int dataLength)
+        {
+            byte[] spanData = [.. SwarmCac.LengthToSpan(spanLength), .. new byte[dataLength]];
+            return new SwarmCac(new SwarmChunkBmt().Hash(spanData), spanData);
         }
     }
 }

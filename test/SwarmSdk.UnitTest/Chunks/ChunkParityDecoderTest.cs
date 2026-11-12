@@ -12,11 +12,13 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -250,6 +252,38 @@ namespace Etherna.SwarmSdk.Chunks
                 var chunk = decoder.GetChunk(test.ChunkHash);
                 Assert.Equal(test.ChunkHash, chunk.Hash);
             }
+        }
+
+        /// <summary>
+        /// The buffer of a fetched shard is padded to a full chunk for the recovery only: the chunk comes back as
+        /// fetched, whether it is the last one or not, and whatever its span declares
+        /// </summary>
+        [Theory]
+        [InlineData(0, 20UL, 20)]
+        [InlineData(1, 20UL, 20)]
+        [InlineData(1, 100UL, 20)]
+        public async Task TryGetChunkHandsBackAFetchedChunkAsFetched(int shardIndex, ulong spanLength, int dataLength)
+        {
+            // Setup.
+            var bmt = new SwarmChunkBmt();
+            var fullSpanData = SwarmCac.BuildFromData(SwarmHash.Zero, new byte[SwarmCac.DataSize]).SpanData;
+            var fullChunk = new SwarmCac(bmt.Hash(fullSpanData), fullSpanData);
+            byte[] shortSpanData = [.. SwarmCac.LengthToSpan(spanLength), .. new byte[dataLength]];
+            var shortChunk = new SwarmCac(bmt.Hash(shortSpanData), shortSpanData);
+            var chunks = shardIndex == 0 ? new[] { shortChunk, fullChunk } : [fullChunk, shortChunk];
+            var chunkStore = new MemoryChunkStore();
+            foreach (var chunk in chunks)
+                await chunkStore.AddAsync(chunk);
+            var decoder = new ChunkParityDecoder(
+                chunks.Select(c => new SwarmShardReference(new SwarmReference(c.Hash, null), false)), chunkStore);
+            await decoder.FetchWithoutStrategyAsync(
+                chunks.Select(c => new SwarmReference(c.Hash, null)).ToArray(), CancellationToken.None);
+
+            // Run.
+            var fetched = decoder.GetChunk(shortChunk.Hash);
+
+            // Assert.
+            Assert.Equal(shortSpanData, fetched.SpanData.ToArray());
         }
 
         [Fact]
