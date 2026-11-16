@@ -1,7 +1,7 @@
 name: Native AOT compatibility
 
 # Also invoked as a reusable workflow by the deploy workflows, which block on its result.
-# Push to dev is not listed here because the MyGet deploy workflow already runs it on that branch.
+# Push to dev is not listed here because the unstable deploy workflow already runs it on that branch.
 on:
   pull_request:
   push:

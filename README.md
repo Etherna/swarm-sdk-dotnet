@@ -181,7 +181,7 @@ hand-maintained — see [tools/README.md](tools/README.md) for how to regenerate
 You can get the latest public releases from the [NuGet.org feed](https://www.nuget.org/profiles/etherna).
 
 If you'd like to work with the latest internal releases, you can use our
-[custom MyGet feed](https://www.myget.org/F/etherna/api/v3/index.json) (NuGet V3).
+[Etherna NuGet feed](https://nuget.etherna.io/v3/index.json) (NuGet V3).
 
 ## Contributing
 
