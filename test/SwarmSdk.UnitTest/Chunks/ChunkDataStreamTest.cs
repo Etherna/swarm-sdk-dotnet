@@ -478,6 +478,35 @@ namespace Etherna.SwarmSdk.Chunks
             Assert.Contains("not as long as its span", thrown.Message, StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// A child of the root is gone and no parity can bring it back: the read names the chunk and the chunk it
+        /// belongs to, with the decoder's own not found inside, through the fetch without strategy and through the
+        /// Data strategy alike
+        /// </summary>
+        [Theory]
+        [InlineData(RedundancyStrategy.None)]
+        [InlineData(RedundancyStrategy.Data)]
+        public async Task ReadReportsTheChunkNotFoundAndItsParent(RedundancyStrategy strategy)
+        {
+            // Setup.
+            var firstChild = BuildDataChunk(SwarmCac.DataSize);
+            var lastChild = BuildDataChunk(20);
+            var (chunkStore, rootChunk) = await BuildTreeAsync(SwarmCac.DataSize + 20, firstChild, lastChild);
+            Assert.True(await chunkStore.RemoveAsync(lastChild.Hash));
+            await using var chunkDataStream = ChunkDataStream.BuildNew(rootChunk, chunkStore, strategy, false);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunkChildrenNotFoundException>(() => chunkDataStream.ToByteArrayAsync());
+
+            // Assert.
+            Assert.Equal(new SwarmReference(rootChunk.Hash, null), thrown.ParentReference);
+            Assert.Equal([new SwarmShardReference(lastChild.Hash, false)], thrown.MissingShards);
+            Assert.Contains(rootChunk.Hash.ToString(), thrown.Message, StringComparison.Ordinal);
+            Assert.Contains(lastChild.Hash.ToString(), thrown.Message, StringComparison.Ordinal);
+            var inner = Assert.IsType<SwarmChunksNotFoundException>(thrown.InnerException);
+            Assert.Equal(thrown.MissingShards, inner.MissingShards);
+        }
+
         // Helpers.
         /// <summary>
         /// A root of two children with the given span, the chunks in a store

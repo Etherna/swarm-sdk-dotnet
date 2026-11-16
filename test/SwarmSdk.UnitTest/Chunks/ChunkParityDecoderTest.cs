@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
@@ -347,6 +348,58 @@ namespace Etherna.SwarmSdk.Chunks
             // Run & Assert.
             var thrown = await Assert.ThrowsAnyAsync<Exception>(() => decoder.TryFetchAndRecoverAsync(RedundancyStrategy.Data, false));
             Assert.Same(readFailure, thrown);
+        }
+
+        /// <summary>
+        /// A fetch by strategy that can't obtain the data shards names the shards it asked for and didn't get: under
+        /// the Data strategy the parities are never asked, so they are not listed
+        /// </summary>
+        [Fact]
+        public async Task FetchChunksReportsTheShardsNotObtained()
+        {
+            // Setup.
+            var chunkStore = new MemoryChunkStore();
+            await chunkStore.AddAsync(chunksDictionary["ddf10d58bc29ff8aa4596d0d6f1c7ad4dc96b422c1f8879f22fbd5cb62c63fac"]); //data
+            await chunkStore.AddAsync(chunksDictionary["45a2fb3301637e7cd235a7f4a26ae78da6a115d87d5f8eef840e35ec1d9833bf"]); //data
+            // await chunkStore.AddAsync(chunksDictionary["6e1839ea477eaf6b8a3f6f900cc3fef9ef638af38e351e16cc68151a4ffe8fe9"]); //data, missing
+            await chunkStore.AddAsync(chunksDictionary["88bcbf153353838a8e1189fae608880939deac7fef81c2ea3169e3afaafc50ac"]); //parity
+            await chunkStore.AddAsync(chunksDictionary["eda7ecf100a309dd745988090af3cb26e6891118fb1e3ea99986cc5ffbd5dd30"]); //parity
+            await chunkStore.AddAsync(chunksDictionary["b9c30db9d81835586397913e555569807575998569c67f7ab04fa312d66aafbc"]); //parity
+            var decoder = new ChunkParityDecoder(references, chunkStore);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunksNotFoundException>(() =>
+                decoder.FetchChunksAsync(RedundancyStrategy.Data, false, forceFetchAllChunks: true));
+
+            // Assert.
+            Assert.Equal([references[2]], thrown.MissingShards);
+            Assert.Contains(references[2].Reference.Hash.ToString(), thrown.Message, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// A fetch without strategy that can't obtain the references it was given names the ones it didn't get; the
+        /// shards it was not asked for are not listed
+        /// </summary>
+        [Fact]
+        public async Task FetchWithoutStrategyReportsTheShardsNotObtained()
+        {
+            // Setup.
+            var chunkStore = new MemoryChunkStore();
+            await chunkStore.AddAsync(chunksDictionary["ddf10d58bc29ff8aa4596d0d6f1c7ad4dc96b422c1f8879f22fbd5cb62c63fac"]); //data
+            // await chunkStore.AddAsync(chunksDictionary["45a2fb3301637e7cd235a7f4a26ae78da6a115d87d5f8eef840e35ec1d9833bf"]); //data, missing
+            // await chunkStore.AddAsync(chunksDictionary["6e1839ea477eaf6b8a3f6f900cc3fef9ef638af38e351e16cc68151a4ffe8fe9"]); //data, missing
+            var decoder = new ChunkParityDecoder(references, chunkStore);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmChunksNotFoundException>(() =>
+                decoder.FetchWithoutStrategyAsync(
+                    references.Where(r => !r.IsParity).Select(r => r.Reference).ToArray(),
+                    CancellationToken.None));
+
+            // Assert.
+            Assert.Equal([references[1], references[2]], thrown.MissingShards);
+            Assert.Contains(references[1].Reference.Hash.ToString(), thrown.Message, StringComparison.Ordinal);
+            Assert.Contains(references[2].Reference.Hash.ToString(), thrown.Message, StringComparison.Ordinal);
         }
     }
 }

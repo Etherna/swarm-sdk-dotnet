@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
@@ -39,6 +40,7 @@ namespace Etherna.SwarmSdk.Chunks
         private readonly SwarmShardReference[] _shardReferences;
         private readonly byte[][] shardsBuffer; //byte[i] could be null when relative chunk is not present
         private readonly int[] fetchedLengths; //0 when the shard was not fetched: absent, or recovered
+        private readonly bool[] requestedShards; //true when the shard was asked to the store
 
         private readonly int dataShardsAmount;
 
@@ -64,6 +66,7 @@ namespace Etherna.SwarmSdk.Chunks
             _shardReferences = shardReferences.ToArray();
             shardsBuffer = new byte[_shardReferences.Length][];
             fetchedLengths = new int[_shardReferences.Length];
+            requestedShards = new bool[_shardReferences.Length];
             dataShardsAmount = _shardReferences.Count(r => !r.IsParity);
 
             for (var i = 0; i < _shardReferences.Length; i++)
@@ -122,6 +125,8 @@ namespace Etherna.SwarmSdk.Chunks
         /// <param name="strategyFallback">When true and a strategy fails, fallback to try the next</param>
         /// <param name="customStrategyTimeout">Optional custom timeout for each strategy</param>
         /// <param name="cancellationToken">Cancellation token</param>
+        /// <exception cref="SwarmChunksNotFoundException">No strategy obtained the data shards: it lists the shards
+        /// asked and not obtained</exception>
         public async Task FetchChunksAsync(
             RedundancyStrategy firstStrategy,
             bool strategyFallback,
@@ -153,7 +158,7 @@ namespace Etherna.SwarmSdk.Chunks
             }
 
             if (!succeeded)
-                throw new KeyNotFoundException();
+                throw BuildChunksNotFoundException();
         }
 
         public async Task FetchWithoutStrategyAsync(
@@ -172,6 +177,8 @@ namespace Etherna.SwarmSdk.Chunks
                 return;
 
             // Fetch chunks.
+            foreach (var hash in hashesToQuery)
+                requestedShards[hashIndexMap[hash]] = true;
             var results = await chunkStore.GetAsync(
                 hashesToQuery,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -196,7 +203,7 @@ namespace Etherna.SwarmSdk.Chunks
             }
 
             if (missingChunks)
-                throw new KeyNotFoundException();
+                throw BuildChunksNotFoundException();
         }
 
         public SwarmCac GetChunk(SwarmHash hash) =>
@@ -290,7 +297,7 @@ namespace Etherna.SwarmSdk.Chunks
                     cancellationToken).ConfigureAwait(false);
                 return true;
             }
-            catch (KeyNotFoundException)
+            catch (SwarmChunksNotFoundException)
             {
                 return false;
             }
@@ -321,7 +328,7 @@ namespace Etherna.SwarmSdk.Chunks
                     cancellationToken).ConfigureAwait(false);
                 return true;
             }
-            catch (KeyNotFoundException)
+            catch (SwarmChunksNotFoundException)
             {
                 return false;
             }
@@ -378,6 +385,12 @@ namespace Etherna.SwarmSdk.Chunks
         }
 
         // Helpers.
+
+        /// <summary>
+        /// The not found of the shards asked to the store and not obtained
+        /// </summary>
+        private SwarmChunksNotFoundException BuildChunksNotFoundException() =>
+            new(_shardReferences.Where((_, i) => requestedShards[i] && shardsBuffer[i] == null!).ToArray());
 
         /// <summary>
         /// Common goal is to fetch at least as many chunks as the number of data shards.
@@ -444,6 +457,8 @@ namespace Etherna.SwarmSdk.Chunks
                 return false;
 
             // Run chunks query.
+            foreach (var hash in hashesToQuery)
+                requestedShards[hashIndexMap[hash]] = true;
             using var timeoutCts = new CancellationTokenSource(customStrategyTimeout ?? DefaultTimeout);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
             var results = await chunkStore.GetAsync(

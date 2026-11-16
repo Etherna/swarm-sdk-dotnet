@@ -27,7 +27,7 @@ Three source projects plus two test projects:
 
 - **`src/SwarmSdk`** (`SwarmSdk`) — Core models, tools, and services to work with Swarm, with no Bee-node dependency. Organized by feature folder:
   - `Models/` — Swarm domain types (`SwarmHash`, `SwarmCac`, `SwarmSoc`, `SwarmAddress`, feeds, postage stamps, `EthAddress`, …). Mostly immutable value-like types with `BuildFrom…`/`BuildNew` static factories.
-  - `Chunks/` — chunk-level operations: `ChunkDataStream` (seekable, lazily-fetched stream over a chunk tree), `ChunkTraverser`, `ChunkReplicator`, `ChunkParityDecoder` (Reed–Solomon redundancy), encryption.
+  - `Chunks/` — chunk-level operations: `ChunkDataStream` (seekable, lazily-fetched stream over a chunk tree), `ChunkTraverser`, `ChunkReplicator`, `ChunkParityDecoder` (Reed–Solomon redundancy; the shards it asks for and doesn't obtain are reported as `SwarmChunksNotFoundException`, a `KeyNotFoundException` of `Exceptions/` listing them, which `ChunkDataStream` wraps in `SwarmChunkChildrenNotFoundException` with the reference of the intermediate chunk they belong to), encryption.
   - `Stores/` — chunk/stamp store abstractions (`IReadOnlyChunkStore`, `IChunkStore`, `IStampStore`) and composable implementations/decorators (`MemoryChunkStore`, `LocalDirectoryChunkStore`, `CacheChunkStore`, `MirroringChunkStore`, `ReplicaResolverChunkStore`). Stores are decorators: compose them rather than adding branches to an existing one.
   - `Hashing/` — BMT hashing, the chunking `Pipeline/`, postage stamping (`Postage/`), and signing (`Signer/`). Cryptography is in-house (BouncyCastle), not Nethereum.
   - `Manifest/` — Mantaray manifest reading/writing and path resolution.

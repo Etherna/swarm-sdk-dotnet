@@ -220,6 +220,7 @@ namespace Etherna.SwarmSdk.Chunks
              */
             Dictionary<SwarmReference, SwarmDecodedCacBase> decodedChunksMap = [];
             List<Task> fetchAndRecoverTasks = [];
+            List<SwarmReference> fetchParentReferences = []; //the intermediate chunk each fetch task reads the children of
             List<SwarmReference> nextLevelReferences = [];
             Dictionary<SwarmReference, ulong> impliedSpanLengths = [];
             List<ChunkParityDecoder> parityDecoders = [];
@@ -232,6 +233,7 @@ namespace Etherna.SwarmSdk.Chunks
                 
                 decodedChunksMap.Clear();
                 fetchAndRecoverTasks.Clear();
+                fetchParentReferences.Clear();
                 nextLevelReferences.Clear();
                 parityDecoders.Clear();
                 impliedSpanLengths.Clear();
@@ -351,10 +353,20 @@ namespace Etherna.SwarmSdk.Chunks
                     }
 
                     parityDecoders.Add(decoder);
+                    fetchParentReferences.Add(intermediateChunk.Reference);
                 }
 
-                // Wait all "fetch and recover" tasks for this level.
-                await Task.WhenAll(fetchAndRecoverTasks).ConfigureAwait(false);
+                // Wait all "fetch and recover" tasks for this level. The children a decoder couldn't obtain are reported
+                // with the reference of the chunk they belong to.
+                try
+                {
+                    await Task.WhenAll(fetchAndRecoverTasks).ConfigureAwait(false);
+                }
+                catch (SwarmChunksNotFoundException e)
+                {
+                    var failedFetchIndex = fetchAndRecoverTasks.FindIndex(t => t.Exception?.InnerExceptions.Contains(e) == true);
+                    throw new SwarmChunkChildrenNotFoundException(fetchParentReferences[failedFetchIndex], e);
+                }
                 
                 // If next level is empty, set cache and return.
                 if (nextLevelReferences.Count == 0)
