@@ -32,7 +32,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "bee-openapi", "bee-openapi"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{F6289FE6-5CC0-4225-98BC-2DCFE85C767F}"
 	ProjectSection(SolutionItems) = preProject
-		.github\workflows\myget-unstable-deploy.yml = .github\workflows\myget-unstable-deploy.yml
+		.github\workflows\nuget-unstable-deploy.yml = .github\workflows\nuget-unstable-deploy.yml
 		.github\workflows\nuget-stable-deploy.yml = .github\workflows\nuget-stable-deploy.yml
 		.github\workflows\aot-compatibility.yml = .github\workflows\aot-compatibility.yml
 	EndProjectSection
