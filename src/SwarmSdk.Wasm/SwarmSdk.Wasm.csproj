@@ -14,14 +14,12 @@
 
     <RepositoryUrl>https://github.com/Etherna/swarm-sdk-dotnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageLicenseFile>COPYING</PackageLicenseFile>
-    <PackageLicenseFile>COPYING-LESSER</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="..\..\COPYING" Pack="true" PackagePath="\" />
-    <None Include="..\..\COPYING-LESSER" Pack="true" PackagePath="\" />
+    <None Include="..\..\COPYING.LESSER" Pack="true" PackagePath="\" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
