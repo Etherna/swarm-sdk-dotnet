@@ -63,7 +63,7 @@ Bugs and features are tracked in Jira project **SSDK** (https://etherna.atlassia
 - All elements (usings, properties, methods, fields, enum members, etc.) are always alphabetically ordered within their respective sections.
 - Primary constructors are preferred everywhere the constructor is a simple parameter assignment.
 - Keep code clean: remove unused variables, dead code, and redundant imports.
-- Every source file starts with the standard LGPL copyright header (see any existing file).
+- Every source file starts with the standard LGPL copyright header (see any existing file); the NSwag-generated clients keep the header of their generator. The solution license is GNU LGPL, stated by the `COPYING` + `COPYING.LESSER` text pair the GitHub detector reads as LGPL-3.0 (it recognises the lesser terms by that exact file name), and declared to the package registries by the `PackageLicenseExpression` of `Directory.Build.props`: `LGPL-3.0-or-later`, the SPDX form of the header wording, set once for every package and mutually exclusive with `PackageLicenseFile`, which no project sets. Both texts are packed as package content.
 
 ## Naming
 

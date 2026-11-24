@@ -1,5 +1,14 @@
 <Project>
 
+  <!-- The license of every package of the solution, declared once. The COPYING (GNU GPL) and COPYING.LESSER (GNU LGPL)
+       texts are packed as content, but a license file carries no machine readable identifier: the SPDX expression is
+       what the package registries publish and what the license scanners of the consumers read. It says `-or-later`
+       like the "or (at your option) any later version" of the source headers, and it excludes PackageLicenseFile,
+       which NuGet accepts only as its alternative, and only for a single file. -->
+  <PropertyGroup>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+  </PropertyGroup>
+
   <!-- GitVersion.MsBuild writes its output to a single obj/gitversion.json per project, but the inner builds of the
        target frameworks run in parallel and rewrite it while another one is still reading it, failing the build at
        random. Give each target framework its own file. This must be set here, before the package props are imported,
