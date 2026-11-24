@@ -17,6 +17,7 @@ using Etherna.SwarmSdk.Models;
 using Microsoft.Extensions.Time.Testing;
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -31,20 +32,30 @@ namespace Etherna.SwarmSdk
         private const string AboveLongAmount = "10000000000000000000";
         private const string DegradedBatchJson =
             """{"batchID":"aa48dd9f8c1a62ecbca14bbe76ee35f2bb1fd5c89bd5e3e32c0d0e1d4cdf1b6e","utilization":3,"usable":false,"label":"","depth":20,"amount":null,"bucketDepth":16,"immutableFlag":false,"error":"Node is not ready"}""";
+        private const string FirstPinCheckLine = //with the keys in bee's order
+            """{"reference":"1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9","total":12,"missing":2,"invalid":1}""";
         private const string FullBatchJson =
             """{"batchID":"42d923558a0fcec12cd6c84ef4118f32caa694d60ae677e1ebe76ad8e470d099","utilization":0,"usable":true,"label":"","depth":17,"amount":"2831120640","bucketDepth":16,"blockNumber":44667643,"immutableFlag":false,"exists":true,"batchTTL":120105}""";
+        private const string SecondPinCheckLine = //with the keys in beehive's order
+            """{"reference":"42d923558a0fcec12cd6c84ef4118f32caa694d60ae677e1ebe76ad8e470d099","missing":0,"invalid":0,"total":7}""";
         private const string TransactionHashHex = "0x5a1f0c3b9e7d2a4c6b8e0f1d3c5a7b9e1f3d5c7a9b1e3f5d7c9a1b3e5f7d9c1b";
         
         // Fields.
         private static readonly PostageBatchId batchId = "42d923558a0fcec12cd6c84ef4118f32caa694d60ae677e1ebe76ad8e470d099";
         private static readonly SwarmHash chunkHash = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+        private static readonly SwarmReference firstPinReference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
         private static readonly Uri nodeUrl = new("http://localhost:1633/");
+        private static readonly SwarmReference secondPinReference = "42d923558a0fcec12cd6c84ef4118f32caa694d60ae677e1ebe76ad8e470d099";
         
         // Data.
         public static TheoryData<SwarmClients, string, TimeSpan, Func<SwarmClient, Task>> OperationClassBounds => new()
         {
             { SwarmClients.Bee, nameof(SwarmClient.BuyPostageBatchAsync), TimeSpan.FromMinutes(10), c => c.BuyPostageBatchAsync(BzzValue.FromPlurDecimal(1), 20) },
             { SwarmClients.Beehive, nameof(SwarmClient.BuyPostageBatchAsync), TimeSpan.FromMinutes(10), c => c.BuyPostageBatchAsync(BzzValue.FromPlurDecimal(1), 20) },
+            { SwarmClients.Bee, nameof(SwarmClient.CheckAllPinsAsync), TimeSpan.FromMinutes(10), c => c.CheckAllPinsAsync().GetAsyncEnumerator().MoveNextAsync().AsTask() },
+            { SwarmClients.Beehive, nameof(SwarmClient.CheckAllPinsAsync), TimeSpan.FromMinutes(10), c => c.CheckAllPinsAsync().GetAsyncEnumerator().MoveNextAsync().AsTask() },
+            { SwarmClients.Bee, nameof(SwarmClient.CheckPinsAsync), TimeSpan.FromMinutes(10), c => c.CheckPinsAsync(firstPinReference) },
+            { SwarmClients.Beehive, nameof(SwarmClient.CheckPinsAsync), TimeSpan.FromMinutes(10), c => c.CheckPinsAsync(firstPinReference) },
             { SwarmClients.Bee, nameof(SwarmClient.DepositIntoChequebookAsync), TimeSpan.FromSeconds(60), c => c.DepositIntoChequebookAsync(BzzValue.FromPlurDecimal(1)) },
             { SwarmClients.Bee, nameof(SwarmClient.GetChainStateAsync), TimeSpan.FromSeconds(30), c => c.GetChainStateAsync() },
             { SwarmClients.Beehive, nameof(SwarmClient.GetChainStateAsync), TimeSpan.FromSeconds(30), c => c.GetChainStateAsync() },
@@ -61,6 +72,160 @@ namespace Etherna.SwarmSdk
         };
         
         // Tests.
+        [Theory]
+        [InlineData(SwarmClients.Bee)]
+        [InlineData(SwarmClients.Beehive)]
+        public async Task CheckAllPinsAnswersEachLineAsItArrives(SwarmClients apiCompatibility)
+        {
+            // Setup.
+            var handler = new StreamingHttpMessageHandler();
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            await using var results = swarmClient.CheckAllPinsAsync().GetAsyncEnumerator();
+            
+            // Run.
+            await handler.WriteAsync(FirstPinCheckLine + "\n");
+            var hasFirst = await results.MoveNextAsync();
+            var first = results.Current;
+            await handler.WriteAsync(SecondPinCheckLine + "\n");
+            var hasSecond = await results.MoveNextAsync();
+            var second = results.Current;
+            await handler.CompleteAsync();
+            var hasThird = await results.MoveNextAsync();
+            
+            // Assert.
+            Assert.True(hasFirst);
+            Assert.Equal(firstPinReference, first.Reference);
+            Assert.Equal(12, first.Total);
+            Assert.Equal(2, first.Missing);
+            Assert.Equal(1, first.Invalid);
+            Assert.True(hasSecond);
+            Assert.Equal(secondPinReference, second.Reference);
+            Assert.Equal(7, second.Total);
+            Assert.Equal(0, second.Missing);
+            Assert.Equal(0, second.Invalid);
+            Assert.False(hasThird);
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("/pins/check", request.RequestUri!.AbsolutePath);
+            Assert.Empty(request.RequestUri.Query);
+        }
+        
+        [Fact]
+        public async Task CheckAllPinsAnswersNoResultFromANodeWithNoPins()
+        {
+            // Setup.
+            var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK);
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var results = await swarmClient.CheckAllPinsAsync().ToListAsync();
+            
+            // Assert.
+            Assert.Empty(results);
+        }
+        
+        [Fact]
+        public async Task CheckAllPinsBoundsEachLineOfTheStream()
+        {
+            // Setup.
+            var handler = new StreamingHttpMessageHandler();
+            var timeProvider = new FakeTimeProvider();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                SwarmClients.Bee,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeProvider: timeProvider);
+            await using var results = swarmClient.CheckAllPinsAsync().GetAsyncEnumerator();
+            var almostTheBound = TimeSpan.FromMinutes(10) - TimeSpan.FromMilliseconds(1);
+            
+            // Run.
+            //each line arrives just within its bound, the second one well past a bound on the whole stream
+            var firstTask = results.MoveNextAsync().AsTask();
+            timeProvider.Advance(almostTheBound);
+            await handler.WriteAsync(FirstPinCheckLine + "\n");
+            var hasFirst = await firstTask;
+            var secondTask = results.MoveNextAsync().AsTask();
+            timeProvider.Advance(almostTheBound);
+            await handler.WriteAsync(SecondPinCheckLine + "\n");
+            var hasSecond = await secondTask;
+            
+            //then the node writes nothing more
+            var thirdTask = results.MoveNextAsync().AsTask();
+            timeProvider.Advance(almostTheBound);
+            var isCompletedBeforeTheBound = thirdTask.IsCompleted;
+            timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+            var thrown = await Assert.ThrowsAsync<SwarmClientTimeoutException>(() => thirdTask);
+            
+            // Assert.
+            Assert.True(hasFirst);
+            Assert.True(hasSecond);
+            Assert.False(isCompletedBeforeTheBound);
+            Assert.Equal("SwarmClient.CheckAllPinsAsync", thrown.Operation);
+            Assert.Equal(TimeSpan.FromMinutes(10), thrown.Timeout);
+        }
+        
+        [Fact]
+        public async Task CheckAllPinsOnASilentStreamPropagatesTheCallerCancellation()
+        {
+            // Setup.
+            var handler = new StreamingHttpMessageHandler();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                SwarmClients.Bee,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeProvider: new FakeTimeProvider());
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await using var results = swarmClient.CheckAllPinsAsync(cancellationTokenSource.Token).GetAsyncEnumerator();
+            
+            // Run.
+            var task = results.MoveNextAsync().AsTask();
+            await cancellationTokenSource.CancelAsync();
+            
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        }
+        
+        [Fact]
+        public async Task CheckAllPinsThrowsTheRefusalOfANodeAlreadyCheckingThem()
+        {
+            // Setup.
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.TooManyRequests,
+                """{"code":429,"message":"pin integrity check of all pins already running"}""");
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var thrown = await Assert.ThrowsAsync<SwarmSdkApiException>(
+                async () => await swarmClient.CheckAllPinsAsync().ToListAsync());
+            
+            // Assert.
+            Assert.Equal(429, thrown.StatusCode);
+            Assert.Equal("""{"code":429,"message":"pin integrity check of all pins already running"}""", thrown.Response);
+        }
+        
+        [Theory]
+        [InlineData(SwarmClients.Bee)]
+        [InlineData(SwarmClients.Beehive)]
+        public async Task CheckPinsReadsTheLineOfTheReference(SwarmClients apiCompatibility)
+        {
+            // Setup.
+            var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK, FirstPinCheckLine + "\n");
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var result = await swarmClient.CheckPinsAsync(firstPinReference);
+            
+            // Assert.
+            Assert.Equal(firstPinReference, result.Reference);
+            Assert.Equal(12, result.Total);
+            Assert.Equal(2, result.Missing);
+            Assert.Equal(1, result.Invalid);
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("/pins/check", request.RequestUri!.AbsolutePath);
+            Assert.Equal($"?ref={firstPinReference}", request.RequestUri.Query);
+        }
+        
         [Fact]
         public void ConstructorBuildsItsHttpClientOnTheLongestBound()
         {
