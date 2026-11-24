@@ -1,7 +1,7 @@
 # SwarmSDK
 
-[![SwarmSdk on NuGet](https://img.shields.io/nuget/v/SwarmSdk?label=SwarmSdk)](https://www.nuget.org/packages/SwarmSdk/)
-[![SwarmSdk.Client on NuGet](https://img.shields.io/nuget/v/SwarmSdk.Client?label=SwarmSdk.Client)](https://www.nuget.org/packages/SwarmSdk.Client/)
+[![Etherna.SwarmSdk on NuGet](https://img.shields.io/nuget/v/Etherna.SwarmSdk?label=Etherna.SwarmSdk)](https://www.nuget.org/packages/Etherna.SwarmSdk/)
+[![Etherna.SwarmSdk.Client on NuGet](https://img.shields.io/nuget/v/Etherna.SwarmSdk.Client?label=Etherna.SwarmSdk.Client)](https://www.nuget.org/packages/Etherna.SwarmSdk.Client/)
 [![Target frameworks](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4)](#supported-frameworks)
 [![License: LGPL-3.0](https://img.shields.io/badge/license-LGPL--3.0-blue)](COPYING.LESSER)
 
@@ -29,7 +29,7 @@ data from Swarm, compute Swarm addresses, work with feeds and postage stamps, an
 
 ## Features
 
-**`SwarmSdk` — the SDK (models, crypto, chunking, manifests, feeds, postage, services):**
+**`Etherna.SwarmSdk` — the SDK (models, crypto, chunking, manifests, feeds, postage, services):**
 
 - **Content-addressed chunking** — a configurable hashing pipeline that splits data into chunks, builds the
   chunk tree, optionally encrypts, and computes the resulting Swarm reference locally.
@@ -49,7 +49,7 @@ data from Swarm, compute Swarm addresses, work with feeds and postage stamps, an
   resolution.
 - **Value & identity types** — `BzzValue`/`XDaiValue` money types and Ethereum address/key primitives.
 
-**`SwarmSdk.Client` — Bee node HTTP client:**
+**`Etherna.SwarmSdk.Client` — Bee node HTTP client:**
 
 - A high-level `SwarmClient` over the Bee HTTP API: upload/download bytes, files and directories, manage
   pins, tags, postage batches, chequebook and peers, query node health/info, plus chunk-stream uploads
@@ -63,17 +63,17 @@ Two NuGet packages are published:
 
 | Package | Description | Depends on |
 | --- | --- | --- |
-| [**SwarmSdk**](https://www.nuget.org/packages/SwarmSdk/) | The Swarm SDK: value models, BMT hashing & signing, chunking pipeline, manifests, composable chunk stores, postage stamping and high-level services. No Bee node required. | — |
-| [**SwarmSdk.Client**](https://www.nuget.org/packages/SwarmSdk.Client/) | A client to connect to and operate a Bee node, built on top of `SwarmSdk`. | `SwarmSdk` |
+| [**Etherna.SwarmSdk**](https://www.nuget.org/packages/Etherna.SwarmSdk/) | The Swarm SDK: value models, BMT hashing & signing, chunking pipeline, manifests, composable chunk stores, postage stamping and high-level services. No Bee node required. | — |
+| [**Etherna.SwarmSdk.Client**](https://www.nuget.org/packages/Etherna.SwarmSdk.Client/) | A client to connect to and operate a Bee node, built on top of `Etherna.SwarmSdk`. | `Etherna.SwarmSdk` |
 
 ## Installation
 
 ```bash
 # Talk to a Bee node (brings in the full SDK):
-dotnet add package SwarmSdk.Client
+dotnet add package Etherna.SwarmSdk.Client
 
 # Just the SDK — offline chunking, manifests, feeds, models and services:
-dotnet add package SwarmSdk
+dotnet add package Etherna.SwarmSdk
 ```
 
 ## Quick start
@@ -108,7 +108,7 @@ To target a Beehive-compatible API instead of a standard Bee node, pass
 
 ### Compute a Swarm reference locally (no node)
 
-`SwarmSdk` works **without a Bee node** — for example, to chunk data and compute its Swarm reference offline
+`Etherna.SwarmSdk` works **without a Bee node** — for example, to chunk data and compute its Swarm reference offline
 with `ChunkService`. The same evaluation also reports how much postage batch space the upload would need, so
 you can size a batch before paying for one.
 
