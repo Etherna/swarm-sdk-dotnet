@@ -69,12 +69,24 @@ namespace Etherna.SwarmSdk
             ulong? gasLimit = null,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Validate pinned chunks integrity.</summary>
-        /// <param name="reference">Optional reference to check; if not provided, all pinned references are checked.</param>
+        /// <summary>Validate pinned chunks integrity of every pinned reference.</summary>
+        /// <remarks>
+        /// The node checks its pinned references one at a time and writes the result of each as a line of its answer:
+        /// a result is returned as its line arrives, and the check of a large node takes hours. The bound of
+        /// <see cref="SwarmClientTimeouts.ContentTransfer"/> applies to the wait for the answer and for each line, not
+        /// to the whole check. A node runs one check of every pinned reference at a time, and refuses another one
+        /// with status 429.
+        /// </remarks>
+        /// <returns>Result of the integrity check of each pinned reference, in the order the node checks them</returns>
+        /// <exception cref="SwarmSdkApiException">A server side error occurred. Its status code is 429 while the node is running another check of every pinned reference.</exception>
+        IAsyncEnumerable<CheckPinsResult> CheckAllPinsAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>Validate pinned chunks integrity of a reference.</summary>
+        /// <param name="reference">Reference to check. A reference the node doesn't pin is answered with every count at zero.</param>
         /// <returns>Result of the pinned chunks integrity check</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<CheckPinsResult> CheckPinsAsync(
-            SwarmReference? reference,
+            SwarmReference reference,
             CancellationToken cancellationToken = default);
 
         /// <summary>Upload a collection of chunks in a single bulk request.</summary>

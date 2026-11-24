@@ -71,8 +71,9 @@ namespace Etherna.SwarmSdk
 
         /// <summary>
         /// An operation whose duration grows with the content: the upload of bytes, a file or a directory, a bulk
-        /// chunk upload, a pin, an unpin, a pin check, a stewardship check or reupload, a reserve commitment.
-        /// Default 10 minutes.
+        /// chunk upload, a pin, an unpin, the pin check of a reference, a stewardship check or reupload, a reserve
+        /// commitment. In the pin check of every pinned reference it bounds the wait for the answer and for each
+        /// line of it, the check of one reference, never the whole check. Default 10 minutes.
         /// </summary>
         public TimeSpan ContentTransfer
         {
