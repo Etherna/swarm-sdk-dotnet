@@ -26,13 +26,15 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
             ReadOnlyMemory<byte> span,
             ReadOnlyMemory<byte> spanData,
             long numberId = 0,
-            SemaphoreSlim? prevChunkSemaphore = null)
+            SemaphoreSlim? prevChunkSemaphore = null,
+            CancellationToken cancellationToken = default)
         {
             if (span.Length != SwarmCac.SpanSize)
                 throw new ArgumentOutOfRangeException(nameof(span), $"Span must have length of {SwarmCac.SpanSize}");
             if (spanData.Length < SwarmCac.SpanSize)
                 throw new InvalidOperationException("Data must contain also span, if present");
             
+            CancellationToken = cancellationToken;
             Span = span;
             SpanData = spanData;
             SwarmChunkBmt = swarmChunkBmt;
@@ -41,6 +43,11 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
         }
         
         // Properties.
+        /// <summary>
+        /// Cancellation token of the pipeline run the chunk belongs to
+        /// </summary>
+        public CancellationToken CancellationToken { get; }
+
         /// <summary>
         /// Ordered id, from 0 to n with the last chunk
         /// </summary>

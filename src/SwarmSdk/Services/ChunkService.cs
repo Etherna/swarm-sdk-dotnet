@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Services
@@ -37,7 +38,8 @@ namespace Etherna.SwarmSdk.Services
             IReadOnlyChunkStore chunkStore,
             RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             RedundancyStrategy redundancyStrategy = RedundancyStrategy.Data,
-            bool redundancyStrategyFallback = true)
+            bool redundancyStrategyFallback = true,
+            CancellationToken cancellationToken = default)
         {
             var chunkReference = (await SwarmAddressResolver.ResolveResourceInfoAsync(
                 address,
@@ -45,14 +47,16 @@ namespace Etherna.SwarmSdk.Services
                 manifestPathResolver,
                 redundancyLevel,
                 redundancyStrategy,
-                redundancyStrategyFallback).ConfigureAwait(false)).Result.Reference;
+                redundancyStrategyFallback,
+                cancellationToken).ConfigureAwait(false)).Result.Reference;
 
             return await ChunkDataStream.BuildNewAsync(
                 chunkReference,
                 chunkStore,
                 redundancyLevel,
                 redundancyStrategy,
-                redundancyStrategyFallback).ConfigureAwait(false);
+                redundancyStrategyFallback,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public Task<UploadEvaluationResult> UploadDirectoryAsync(
@@ -65,7 +69,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null, 
-            IChunkStore? chunkStore = null)
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default)
         {
             // Get all files from directory.
             var files = Directory.GetFiles(directoryPath, "", SearchOption.AllDirectories);
@@ -82,7 +87,8 @@ namespace Etherna.SwarmSdk.Services
                 redundancyLevel,
                 postageStamper,
                 chunkCuncorrency,
-                chunkStore);
+                chunkStore,
+                cancellationToken);
         }
 
         public async Task<UploadEvaluationResult> UploadDirectoryAsync(
@@ -96,7 +102,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null,
-            IChunkStore? chunkStore = null)
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default)
         {
             // Checks.
             ArgumentNullException.ThrowIfNull(fileNames);
@@ -154,7 +161,9 @@ namespace Etherna.SwarmSdk.Services
                 var fileStream = getFileStream(filePath);
                 await using (fileStream.ConfigureAwait(false))
                 {
-                    var fileReference = await fileHasherPipeline.HashDataAsync(fileStream).ConfigureAwait(false);
+                    var fileReference = await fileHasherPipeline.HashDataAsync(
+                        fileStream,
+                        cancellationToken).ConfigureAwait(false);
                     totalMissedOptimisticHashing += fileHasherPipeline.MissedOptimisticHashing;
                 
                     // Add file entry to dir manifest.
@@ -186,7 +195,7 @@ namespace Etherna.SwarmSdk.Services
             }
 
             // Get manifest hash.
-            var chunkHashingResult = await dirManifest.GetReferenceAsync(hasher).ConfigureAwait(false);
+            var chunkHashingResult = await dirManifest.GetReferenceAsync(hasher, cancellationToken).ConfigureAwait(false);
             
             // Return result.
             return new UploadEvaluationResult(
@@ -205,7 +214,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null, 
-            IChunkStore? chunkStore = null)
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default)
         {
             using var stream = new MemoryStream(data);
             return await UploadSingleFileAsync(
@@ -218,7 +228,8 @@ namespace Etherna.SwarmSdk.Services
                 redundancyLevel,
                 postageStamper,
                 chunkCuncorrency,
-                chunkStore).ConfigureAwait(false);
+                chunkStore,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<UploadEvaluationResult> UploadSingleFileAsync(
@@ -231,7 +242,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null, 
-            IChunkStore? chunkStore = null)
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default)
         {
             // Checks.
             if (fileName?.Contains(SwarmAddress.Separator, StringComparison.InvariantCulture) == true)
@@ -254,7 +266,7 @@ namespace Etherna.SwarmSdk.Services
                 encrypt,
                 compactLevel,
                 chunkCuncorrency);
-            var fileReference = await fileHasherPipeline.HashDataAsync(stream).ConfigureAwait(false);
+            var fileReference = await fileHasherPipeline.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
             
             // If file name is null or empty, use the file hash as name.
             if (string.IsNullOrWhiteSpace(fileName))
@@ -287,7 +299,7 @@ namespace Etherna.SwarmSdk.Services
                         [ManifestEntry.FilenameKey] = fileName
                     }));
 
-            var chunkHashingResult = await manifest.GetReferenceAsync(hasher).ConfigureAwait(false);
+            var chunkHashingResult = await manifest.GetReferenceAsync(hasher, cancellationToken).ConfigureAwait(false);
             
             // Return result.
             return new UploadEvaluationResult(
@@ -303,7 +315,8 @@ namespace Etherna.SwarmSdk.Services
             ushort compactLevel = 0,
             bool encrypt = false,
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
-            int? chunkCuncorrency = null)
+            int? chunkCuncorrency = null,
+            CancellationToken cancellationToken = default)
         {
 #pragma warning disable CA2025
             using var stream = new MemoryStream(data);
@@ -314,7 +327,8 @@ namespace Etherna.SwarmSdk.Services
                 compactLevel,
                 encrypt,
                 redundancyLevel,
-                chunkCuncorrency);
+                chunkCuncorrency,
+                cancellationToken);
 #pragma warning restore CA2025
         }
 
@@ -325,7 +339,8 @@ namespace Etherna.SwarmSdk.Services
             ushort compactLevel = 0,
             bool encrypt = false,
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
-            int? chunkCuncorrency = null)
+            int? chunkCuncorrency = null,
+            CancellationToken cancellationToken = default)
         {
             postageStampIssuer ??= new PostageStampIssuer(PostageBatch.MaxDepthInstance);
             var postageStamper = new PostageStamper(
@@ -341,7 +356,7 @@ namespace Etherna.SwarmSdk.Services
                 encrypt,
                 compactLevel,
                 chunkCuncorrency);
-            return await fileHasherPipeline.HashDataAsync(stream).ConfigureAwait(false);
+            return await fileHasherPipeline.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
         }
     }
 }

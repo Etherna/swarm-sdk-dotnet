@@ -16,6 +16,7 @@ using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Manifest
@@ -29,44 +30,54 @@ namespace Etherna.SwarmSdk.Manifest
         public abstract IReadOnlyMantarayNode RootNode { get; }
         
         // Methods.
-        public abstract Task<SwarmReference> GetReferenceAsync(Hasher hasher);
+        public abstract Task<SwarmReference> GetReferenceAsync(
+            Hasher hasher,
+            CancellationToken cancellationToken = default);
 
         public async Task<ManifestPathResolutionResult<IReadOnlyDictionary<string, string>>> GetMetadataAsync(
             string path,
-            ManifestPathResolver pathResolver)
+            ManifestPathResolver pathResolver,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(path);
             ArgumentNullException.ThrowIfNull(pathResolver);
             
-            await RootNode.OnVisitingAsync().ConfigureAwait(false);
+            await RootNode.OnVisitingAsync(cancellationToken).ConfigureAwait(false);
             return await pathResolver.InvokeAsync(
                 path,
                 invokeAsync: RootNode.GetMetadataAsync,
                 hasPathPrefixAsync: RootNode.HasPathPrefixAsync,
-                getRootMetadataAsync: ct => RootNode.GetMetadataAsync(RootPath, ct)).ConfigureAwait(false);
+                getRootMetadataAsync: ct => RootNode.GetMetadataAsync(RootPath, ct),
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<ManifestPathResolutionResult<MantarayResourceInfo>> GetResourceInfoAsync(
             string path,
-            ManifestPathResolver pathResolver)
+            ManifestPathResolver pathResolver,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(path);
             ArgumentNullException.ThrowIfNull(pathResolver);
             
-            await RootNode.OnVisitingAsync().ConfigureAwait(false);
+            await RootNode.OnVisitingAsync(cancellationToken).ConfigureAwait(false);
             return await pathResolver.InvokeAsync(
                 path,
                 invokeAsync: RootNode.GetResourceInfoAsync,
                 hasPathPrefixAsync: RootNode.HasPathPrefixAsync,
-                getRootMetadataAsync: ct => RootNode.GetMetadataAsync(RootPath, ct)).ConfigureAwait(false);
+                getRootMetadataAsync: ct => RootNode.GetMetadataAsync(RootPath, ct),
+                cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<bool> HasPathPrefixAsync(string path)
+        public async Task<bool> HasPathPrefixAsync(
+            string path,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(path);
             
-            await RootNode.OnVisitingAsync().ConfigureAwait(false);
-            return await RootNode.HasPathPrefixAsync(path.TrimStart(SwarmAddress.Separator)).ConfigureAwait(false);
+            await RootNode.OnVisitingAsync(cancellationToken).ConfigureAwait(false);
+            return await RootNode.HasPathPrefixAsync(
+                path.TrimStart(SwarmAddress.Separator),
+                cancellationToken).ConfigureAwait(false);
         }
     }
 }

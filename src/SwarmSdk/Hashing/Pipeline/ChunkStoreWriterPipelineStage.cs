@@ -16,6 +16,7 @@ using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Hashing.Pipeline
@@ -50,14 +51,14 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
             
                 // Store chunk.
                 var chunk = new SwarmCac(args.Reference.Value.Hash, args.SpanData);
-                await chunkStore.AddAsync(chunk).ConfigureAwait(false);
+                await chunkStore.AddAsync(chunk, args.CancellationToken).ConfigureAwait(false);
             }
 
             if (nextStage is not null)
                 await nextStage.FeedAsync(args).ConfigureAwait(false);
         }
         
-        public Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt) =>
-            nextStage?.SumAsync(swarmChunkBmt) ?? throw new InvalidOperationException();
+        public Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt, CancellationToken cancellationToken) =>
+            nextStage?.SumAsync(swarmChunkBmt, cancellationToken) ?? throw new InvalidOperationException();
     }
 }

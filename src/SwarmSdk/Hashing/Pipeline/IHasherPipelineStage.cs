@@ -15,6 +15,7 @@
 using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Hashing.Pipeline
@@ -27,6 +28,6 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
         
         // Methods.
         Task FeedAsync(HasherPipelineFeedArgs args);
-        Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt);
+        Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt, CancellationToken cancellationToken);
     }
 }

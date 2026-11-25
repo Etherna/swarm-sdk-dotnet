@@ -122,9 +122,11 @@ namespace Etherna.SwarmSdk.Manifest
             rootNode.Add(path, entry);
         }
 
-        public override async Task<SwarmReference> GetReferenceAsync(Hasher hasher)
+        public override async Task<SwarmReference> GetReferenceAsync(
+            Hasher hasher,
+            CancellationToken cancellationToken = default)
         {
-            await rootNode.ComputeHashAsync(hasher, hasherPipelineBuilder).ConfigureAwait(false);
+            await rootNode.ComputeHashAsync(hasher, hasherPipelineBuilder, cancellationToken).ConfigureAwait(false);
             return rootNode.Reference;
         }
     }

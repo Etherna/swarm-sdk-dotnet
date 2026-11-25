@@ -76,7 +76,8 @@ namespace Etherna.SwarmSdk.Chunks
             IReadOnlyChunkStore chunkStore,
             RedundancyLevel redundancyLevel,
             RedundancyStrategy redundancyStrategy, 
-            bool redundancyStrategyFallback)
+            bool redundancyStrategyFallback,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(chunkStore);
             
@@ -86,7 +87,7 @@ namespace Etherna.SwarmSdk.Chunks
                 new ReplicaResolverChunkStore(chunkStore, redundancyLevel, new Hasher());
             
             // Resolve root chunk.
-            var rootChunk = await rootChunkStore.GetAsync(reference.Hash).ConfigureAwait(false);
+            var rootChunk = await rootChunkStore.GetAsync(reference.Hash, cancellationToken).ConfigureAwait(false);
             if (rootChunk is not SwarmCac rootCac) //soc is not supported
                 throw new SwarmChunkTypeException(rootChunk, $"Chunk {reference} is not a Content Addressed Chunk.");
             
@@ -190,11 +191,11 @@ namespace Etherna.SwarmSdk.Chunks
 
         public override void SetLength(long value) => throw new NotSupportedException();
 
-        public async Task<byte[]> ToByteArrayAsync()
+        public async Task<byte[]> ToByteArrayAsync(CancellationToken cancellationToken = default)
         {
             using var ms = new MemoryStream();
             Position = 0;
-            await CopyToAsync(ms).ConfigureAwait(false);
+            await CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
             return ms.ToArray();
         }
 

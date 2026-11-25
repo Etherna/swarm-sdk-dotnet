@@ -94,15 +94,15 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
         public IPostageStamper PostageStamper => nextStage.PostageStamper;
 
         // Methods.
-        public async Task<SwarmReference> HashDataAsync(byte[] data)
+        public async Task<SwarmReference> HashDataAsync(byte[] data, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(data);
 
             using var memoryStream = new MemoryStream(data);
-            return await HashDataAsync(memoryStream).ConfigureAwait(false);
+            return await HashDataAsync(memoryStream, cancellationToken).ConfigureAwait(false);
         }
         
-        public async Task<SwarmReference> HashDataAsync(Stream dataStream)
+        public async Task<SwarmReference> HashDataAsync(Stream dataStream, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(dataStream);
 
@@ -116,65 +116,83 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
             var chunkBuffer = new byte[SwarmCac.DataSize];
             bool isEndOfStream = false;
             SemaphoreSlim? prevChunkSemaphore = null;
-            while (!isEndOfStream)
+            try
             {
-                (var chunkReadSize, isEndOfStream) = await ReadChunkDataFromStreamAsync(dataStream, chunkBuffer).ConfigureAwait(false);
-                
-                if (chunkReadSize > 0 || //write only chunks with data
-                    passedBytes == 0)    //or accept also edge case trying to hash an empty stream
+                while (!isEndOfStream)
                 {
-                    var chunkNumberId = passedBytes / SwarmCac.DataSize;
-                    
-                    // Copy read data from buffer to a new chunk data byte[]. Include also span
-                    var chunkData = new byte[SwarmCac.SpanSize + chunkReadSize];
-                    chunkBuffer.AsSpan(0, chunkReadSize).CopyTo(chunkData.AsSpan(SwarmCac.SpanSize));
-                    
-                    // Write chunk span.
-                    SwarmCac.WriteSpan((ulong)chunkReadSize, chunkData.AsSpan(0, SwarmCac.SpanSize));
+                    cancellationToken.ThrowIfCancellationRequested();
+                    (var chunkReadSize, isEndOfStream) = await ReadChunkDataFromStreamAsync(
+                        dataStream,
+                        chunkBuffer,
+                        cancellationToken).ConfigureAwait(false);
                 
-                    // Invoke next stage with parallelism on chunks.
-                    //control concurrency
-                    await chunkConcurrencySemaphore.WaitAsync().ConfigureAwait(false);
+                    if (chunkReadSize > 0 || //write only chunks with data
+                        passedBytes == 0)    //or accept also edge case trying to hash an empty stream
+                    {
+                        var chunkNumberId = passedBytes / SwarmCac.DataSize;
                     
-                    //initialize chunk semaphore, receiving from resources pool
+                        // Copy read data from buffer to a new chunk data byte[]. Include also span
+                        var chunkData = new byte[SwarmCac.SpanSize + chunkReadSize];
+                        chunkBuffer.AsSpan(0, chunkReadSize).CopyTo(chunkData.AsSpan(SwarmCac.SpanSize));
+                    
+                        // Write chunk span.
+                        SwarmCac.WriteSpan((ulong)chunkReadSize, chunkData.AsSpan(0, SwarmCac.SpanSize));
+                
+                        // Invoke next stage with parallelism on chunks.
+                        //control concurrency
+                        await chunkConcurrencySemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    
+                        //initialize chunk semaphore, receiving from resources pool
 #pragma warning disable CA2000
-                    if (!chunkResourcesPool.TryDequeue(out var chunkResources))
-                        throw new InvalidOperationException("Chunk resources pool exhausted");
+                        if (!chunkResourcesPool.TryDequeue(out var chunkResources))
+                            throw new InvalidOperationException("Chunk resources pool exhausted");
 #pragma warning restore CA2000
-                    await chunkResources.Semaphore.WaitAsync().ConfigureAwait(false);
+                        //not cancellable: a resource taken from the pool goes back to it only through its chunk task
+                        await chunkResources.Semaphore.WaitAsync(CancellationToken.None).ConfigureAwait(false);
                     
-                    //build args
-                    var feedArgs = new HasherPipelineFeedArgs(
-                        swarmChunkBmt: chunkResources.SwarmChunkBmt,
-                        span: chunkData.AsMemory()[..SwarmCac.SpanSize],
-                        spanData: chunkData,
-                        numberId: chunkNumberId,
-                        prevChunkSemaphore: prevChunkSemaphore);
+                        //build args
+                        var feedArgs = new HasherPipelineFeedArgs(
+                            swarmChunkBmt: chunkResources.SwarmChunkBmt,
+                            span: chunkData.AsMemory()[..SwarmCac.SpanSize],
+                            spanData: chunkData,
+                            numberId: chunkNumberId,
+                            prevChunkSemaphore: prevChunkSemaphore,
+                            cancellationToken: cancellationToken);
                     
-                    //run task
-                    nextStageTasks.Add(
-                        Task.Run(async () =>
-                        {
-                            try
+                        //run task
+                        nextStageTasks.Add(
+                            Task.Run(async () =>
                             {
-                                await nextStage.FeedAsync(feedArgs).ConfigureAwait(false);
-                            }
-                            finally
-                            {
-                                //release and restore chunk semaphore in pool
-                                chunkResources.Semaphore.Release();
-                                chunkResourcesPool.Enqueue(chunkResources);
+                                try
+                                {
+                                    await nextStage.FeedAsync(feedArgs).ConfigureAwait(false);
+                                }
+                                finally
+                                {
+                                    //release and restore chunk semaphore in pool
+                                    chunkResources.Semaphore.Release();
+                                    chunkResourcesPool.Enqueue(chunkResources);
                                 
-                                //release task for next chunk
-                                chunkConcurrencySemaphore.Release();
-                            }
-                        }));
+                                    //release task for next chunk
+                                    chunkConcurrencySemaphore.Release();
+                                }
+                            },
+                            //not cancellable: a task that doesn't start never releases the resources taken for it
+                            CancellationToken.None));
                     
-                    //set current chunk semaphore as prev for next chunk
-                    prevChunkSemaphore = chunkResources.Semaphore;
+                        //set current chunk semaphore as prev for next chunk
+                        prevChunkSemaphore = chunkResources.Semaphore;
                     
-                    passedBytes += chunkReadSize;
+                        passedBytes += chunkReadSize;
+                    }
                 }
+            }
+            catch
+            {
+                // Whatever stopped the feed, a cancellation or a failed read, the chunks in flight hold resources
+                // of the pool: let them end before leaving.
+                await Task.WhenAll(nextStageTasks).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                throw;
             }
 
             // Wait the end of all chunk computation.
@@ -182,20 +200,21 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
 
             // Extract an unused chunk's hasher and sum.
             chunkResourcesPool.TryDequeue(out var resourceTuple);
-            return await nextStage.SumAsync(resourceTuple.SwarmChunkBmt).ConfigureAwait(false);
+            return await nextStage.SumAsync(resourceTuple.SwarmChunkBmt, cancellationToken).ConfigureAwait(false);
         }
 
         // Helpers.
         private static async Task<(int chunkDataSize, bool isEndOfStream)> ReadChunkDataFromStreamAsync(
             Stream dataStream,
-            Memory<byte> chunkBuffer)
+            Memory<byte> chunkBuffer,
+            CancellationToken cancellationToken)
         {
             var isEndOfStream = false;
             var totalDataSize = 0;
 
             do
             {
-                var dataSize = await dataStream.ReadAsync(chunkBuffer[totalDataSize..]).ConfigureAwait(false);
+                var dataSize = await dataStream.ReadAsync(chunkBuffer[totalDataSize..], cancellationToken).ConfigureAwait(false);
                 if (dataSize == 0)
                     isEndOfStream = true;
                 totalDataSize += dataSize;

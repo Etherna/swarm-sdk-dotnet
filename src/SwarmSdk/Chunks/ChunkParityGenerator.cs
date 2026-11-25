@@ -18,11 +18,16 @@ using Etherna.SwarmSdk.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Chunks
 {
-    internal delegate Task AddChunkToLevel(int level, SwarmChunkHeader chunkHeader, SwarmChunkBmt swarmChunkBmt);
+    internal delegate Task AddChunkToLevel(
+        int level,
+        SwarmChunkHeader chunkHeader,
+        SwarmChunkBmt swarmChunkBmt,
+        CancellationToken cancellationToken);
 
     internal sealed class ChunkParityGenerator(
         RedundancyLevel redundancyLevel,
@@ -94,7 +99,8 @@ namespace Etherna.SwarmSdk.Chunks
             int chunkLevel,
             ReadOnlyMemory<byte> spanData,
             AddChunkToLevel addParityChunkCallback,
-            SwarmChunkBmt swarmChunkBmt)
+            SwarmChunkBmt swarmChunkBmt,
+            CancellationToken cancellationToken)
         {
             if (RedundancyLevel == RedundancyLevel.None)
                 return;
@@ -118,13 +124,18 @@ namespace Etherna.SwarmSdk.Chunks
             
             // Add parity chunks if the level is full.
             if (bufferLevel.DataShardsAmount == MaxDataShards)
-                await EncodeErasureDataAsync(chunkLevel, addParityChunkCallback, swarmChunkBmt).ConfigureAwait(false);
+                await EncodeErasureDataAsync(
+                    chunkLevel,
+                    addParityChunkCallback,
+                    swarmChunkBmt,
+                    cancellationToken).ConfigureAwait(false);
         }
 
         public async Task ElevateCarrierChunkAsync(
             int chunkLevel,
             AddChunkToLevel addParityChunkCallback,
-            SwarmChunkBmt swarmChunkBmt)
+            SwarmChunkBmt swarmChunkBmt,
+            CancellationToken cancellationToken)
         {
             if (RedundancyLevel == RedundancyLevel.None)
                 return;
@@ -137,7 +148,8 @@ namespace Etherna.SwarmSdk.Chunks
                 chunkLevel + 1,
                 bufferLevel.Buffer[0],
                 addParityChunkCallback,
-                swarmChunkBmt).ConfigureAwait(false);
+                swarmChunkBmt,
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -146,7 +158,8 @@ namespace Etherna.SwarmSdk.Chunks
         public async Task EncodeErasureDataAsync(
             int chunkLevel,
             AddChunkToLevel addParityChunkCallback,
-            SwarmChunkBmt swarmChunkBmt)
+            SwarmChunkBmt swarmChunkBmt,
+            CancellationToken cancellationToken)
         {
             if (RedundancyLevel == RedundancyLevel.None)
                 return;
@@ -171,7 +184,7 @@ namespace Etherna.SwarmSdk.Chunks
                 var spanData = bufferLevel.Buffer[i];
                 var span = spanData[..SwarmCac.SpanSize];
 
-                var args = new HasherPipelineFeedArgs(swarmChunkBmt, span, spanData);
+                var args = new HasherPipelineFeedArgs(swarmChunkBmt, span, spanData, cancellationToken: cancellationToken);
                 await shortBmtPipelineStage.FeedAsync(args).ConfigureAwait(false);
 
                 await addParityChunkCallback(
@@ -180,7 +193,8 @@ namespace Etherna.SwarmSdk.Chunks
                         args.Reference!.Value,
                         span,
                         true),
-                    swarmChunkBmt).ConfigureAwait(false);
+                    swarmChunkBmt,
+                    cancellationToken).ConfigureAwait(false);
             }
             
             // Clear current level to reuse.

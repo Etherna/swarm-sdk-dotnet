@@ -50,7 +50,7 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
         // Methods.
         public async Task FeedAsync(HasherPipelineFeedArgs args)
         {
-            await feedChunkMutex.WaitAsync().ConfigureAwait(false);
+            await feedChunkMutex.WaitAsync(args.CancellationToken).ConfigureAwait(false);
             try
             {
                 // Catch all the chunks from async tasks.
@@ -73,13 +73,15 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
                             processingChunk.Reference!.Value,
                             processingChunk.Span,
                             false),
-                        args.SwarmChunkBmt).ConfigureAwait(false);
+                        args.SwarmChunkBmt,
+                        args.CancellationToken).ConfigureAwait(false);
                     
                     await parityGenerator.AddChunkToLevelAsync(
                         0,
                         processingChunk.SpanData,
                         AddChunkToLevelAsync,
-                        args.SwarmChunkBmt).ConfigureAwait(false);
+                        args.SwarmChunkBmt,
+                        args.CancellationToken).ConfigureAwait(false);
                 }
             }
             finally
@@ -88,7 +90,7 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
             }
         }
 
-        public async Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt)
+        public async Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt, CancellationToken cancellationToken)
         {
             var rootChunkFound = false;
             for (int i = 0; !rootChunkFound; i++)
@@ -112,14 +114,14 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
                             levelChunks.Clear();
                             
                             await parityGenerator.ElevateCarrierChunkAsync(
-                                i, AddChunkToLevelAsync, swarmChunkBmt).ConfigureAwait(false);
+                                i, AddChunkToLevelAsync, swarmChunkBmt, cancellationToken).ConfigureAwait(false);
                         }
                         break;
                     
                     default:
                         await parityGenerator.EncodeErasureDataAsync(
-                            i, AddChunkToLevelAsync, swarmChunkBmt).ConfigureAwait(false);
-                        await WrapFullLevelAsync(i, swarmChunkBmt).ConfigureAwait(false);
+                            i, AddChunkToLevelAsync, swarmChunkBmt, cancellationToken).ConfigureAwait(false);
+                        await WrapFullLevelAsync(i, swarmChunkBmt, cancellationToken).ConfigureAwait(false);
                         break;
                 }
             }
@@ -132,14 +134,19 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
                 var rootSpanData = parityGenerator.GetRootSpanData();
                 await chunkReplicator.AddChunkReplicasAsync(
                     new SwarmCac(rootChunk.Reference.Hash, rootSpanData),
-                    swarmChunkBmt.Hasher).ConfigureAwait(false);
+                    swarmChunkBmt.Hasher,
+                    cancellationToken).ConfigureAwait(false);
             }
 
             return rootChunk.Reference;
         }
 
         // Helpers.
-        private async Task AddChunkToLevelAsync(int level, SwarmChunkHeader chunkHeader, SwarmChunkBmt swarmChunkBmt)
+        private async Task AddChunkToLevelAsync(
+            int level,
+            SwarmChunkHeader chunkHeader,
+            SwarmChunkBmt swarmChunkBmt,
+            CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(chunkHeader);
 
@@ -147,7 +154,7 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
             levelChunks.Add(chunkHeader);
             
             if (levelChunks.Count == parityGenerator.MaxChildrenChunks)
-                await WrapFullLevelAsync(level, swarmChunkBmt).ConfigureAwait(false);
+                await WrapFullLevelAsync(level, swarmChunkBmt, cancellationToken).ConfigureAwait(false);
         }
 
         private List<SwarmChunkHeader> GetLevelChunks(int level)
@@ -160,14 +167,19 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
         private async Task<HasherPipelineFeedArgs> HashIntermediateChunkAsync(
             ReadOnlyMemory<byte> span,
             ReadOnlyMemory<byte> spanData,
-            SwarmChunkBmt swarmChunkBmt)
+            SwarmChunkBmt swarmChunkBmt,
+            CancellationToken cancellationToken)
         {
-            var args = new HasherPipelineFeedArgs(swarmChunkBmt: swarmChunkBmt, span: span, spanData: spanData);
+            var args = new HasherPipelineFeedArgs(
+                swarmChunkBmt: swarmChunkBmt,
+                span: span,
+                spanData: spanData,
+                cancellationToken: cancellationToken);
             await shortBmtPipelineStage.FeedAsync(args).ConfigureAwait(false);
             return args;
         }
         
-        private async Task WrapFullLevelAsync(int level, SwarmChunkBmt swarmChunkBmt)
+        private async Task WrapFullLevelAsync(int level, SwarmChunkBmt swarmChunkBmt, CancellationToken cancellationToken)
         {
             var levelChunks = GetLevelChunks(level);
 
@@ -199,14 +211,15 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
 
             // Run hashing on the new chunk, and add it to next level.
             var intermediateHashingArgs = await HashIntermediateChunkAsync(
-                totalSpan, totalSpanData, swarmChunkBmt).ConfigureAwait(false);
+                totalSpan, totalSpanData, swarmChunkBmt, cancellationToken).ConfigureAwait(false);
             await AddChunkToLevelAsync(
                 level + 1,
                 new SwarmChunkHeader(
                     intermediateHashingArgs.Reference!.Value,
                     totalSpan,
                     false),
-                swarmChunkBmt).ConfigureAwait(false);
+                swarmChunkBmt,
+                cancellationToken).ConfigureAwait(false);
             
             levelChunks.Clear();
 
@@ -215,7 +228,8 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
                 level + 1,
                 intermediateHashingArgs.SpanData,
                 AddChunkToLevelAsync,
-                swarmChunkBmt).ConfigureAwait(false);
+                swarmChunkBmt,
+                cancellationToken).ConfigureAwait(false);
         }
     }
 }

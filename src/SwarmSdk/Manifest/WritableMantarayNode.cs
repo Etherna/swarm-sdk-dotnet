@@ -176,11 +176,14 @@ namespace Etherna.SwarmSdk.Manifest
             if (ObfuscationCompactLevel == 0)
                 _obfuscationKey ??= EncryptionKey256.BuildNewRandom(); //set random obfuscation key if missing
             else
-                _obfuscationKey = await GetBestObfuscationKeyAsync(hasher, hasherPipelineBuilder).ConfigureAwait(false);
+                _obfuscationKey = await GetBestObfuscationKeyAsync(
+                    hasher,
+                    hasherPipelineBuilder,
+                    cancellationToken).ConfigureAwait(false);
             
             var byteArray = ToByteArray(_obfuscationKey.Value);
             using var hasherPipeline = hasherPipelineBuilder(false);
-            _reference = await hasherPipeline.HashDataAsync(byteArray).ConfigureAwait(false);
+            _reference = await hasherPipeline.HashDataAsync(byteArray, cancellationToken).ConfigureAwait(false);
             
             // Clean forks.
             _forks.Clear();
@@ -247,7 +250,8 @@ namespace Etherna.SwarmSdk.Manifest
         
         private async Task<EncryptionKey256> GetBestObfuscationKeyAsync(
             Hasher hasher,
-            BuildHasherPipeline hasherPipelineBuilder)
+            BuildHasherPipeline hasherPipelineBuilder,
+            CancellationToken cancellationToken)
         {
             /*
              * Calculate an obfuscation key, and try to find a bucket with optimal collisions.
@@ -271,7 +275,9 @@ namespace Etherna.SwarmSdk.Manifest
             // Calculate plain hash, and use as starting seed.
             var plainByteArray = ToByteArray(EncryptionKey256.Zero);
             using var plainHasherPipeline = hasherPipelineBuilder(true);
-            var plainHashingResult = await plainHasherPipeline.HashDataAsync(plainByteArray).ConfigureAwait(false);
+            var plainHashingResult = await plainHasherPipeline.HashDataAsync(
+                plainByteArray,
+                cancellationToken).ConfigureAwait(false);
             var plainChunkHashArray = plainHashingResult.Hash.ToByteArray();
 
             // Search best chunk key.
@@ -287,7 +293,9 @@ namespace Etherna.SwarmSdk.Manifest
                 
                 // Calculate hash and count collisions.
                 using var hasherPipeline = hasherPipelineBuilder(true);
-                var hashingResult = await hasherPipeline.HashDataAsync(obfuscatedData).ConfigureAwait(false);
+                var hashingResult = await hasherPipeline.HashDataAsync(
+                    obfuscatedData,
+                    cancellationToken).ConfigureAwait(false);
                 var collisions = hasherPipeline.PostageStamper.StampIssuer.Buckets.GetCollisions(hashingResult.Hash.ToBucketId());
                 
                 // Check if hash was already stamped.

@@ -19,6 +19,7 @@ using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Services
@@ -31,9 +32,10 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="address">Resource address</param>
         /// <param name="manifestPathResolver"></param>
         /// <param name="chunkStore">The chunk store</param>
-        /// <param name="redundancyLevel">Redundancy level used to retrieve root replicas</param>
+        /// <param name="redundancyLevel">Redundancy level used to retrieve the replicas of every manifest node and of the root chunk of the resource</param>
         /// <param name="redundancyStrategy">Base strategy used to retrieve parity chunks</param>
         /// <param name="redundancyStrategyFallback">Fallback to more aggressive redundancy strategy if required</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>Resource stream</returns>
         Task<Stream> GetFileStreamFromAddressAsync(
             SwarmAddress address,
@@ -41,7 +43,8 @@ namespace Etherna.SwarmSdk.Services
             IReadOnlyChunkStore chunkStore,
             RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             RedundancyStrategy redundancyStrategy = RedundancyStrategy.Data,
-            bool redundancyStrategyFallback = true);
+            bool redundancyStrategyFallback = true,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Evaluate the result uploading a directory
@@ -55,6 +58,7 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="postageStamper">Custom postage stamper</param>
         /// <param name="chunkCuncorrency">Amount of concurrent chunk hashing tasks. Null to default</param>
         /// <param name="chunkStore">Optional custom chunk store</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The upload evaluation result</returns>
         Task<UploadEvaluationResult> UploadDirectoryAsync(
             string directoryPath,
@@ -66,7 +70,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null,
-            IChunkStore? chunkStore = null);
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Evaluate the result uploading a directory
@@ -81,6 +86,7 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="postageStamper">Custom postage stamper</param>
         /// <param name="chunkCuncorrency">Amount of concurrent chunk hashing tasks. Null to default</param>
         /// <param name="chunkStore">Optional custom chunk store</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The upload evaluation result</returns>
         Task<UploadEvaluationResult> UploadDirectoryAsync(
             string[] fileNames,
@@ -93,7 +99,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null,
-            IChunkStore? chunkStore = null);
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Evaluate the result uploading a single file
@@ -107,6 +114,7 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="postageStamper">Custom postage stamper</param>
         /// <param name="chunkCuncorrency">Amount of concurrent chunk hashing tasks. Null to default</param>
         /// <param name="chunkStore">Optional custom chunk store</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The upload evaluation result</returns>
         Task<UploadEvaluationResult> UploadSingleFileAsync(
             byte[] data,
@@ -118,7 +126,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null,
-            IChunkStore? chunkStore = null);
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Evaluate the result uploading a single file
@@ -132,6 +141,7 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="postageStamper">Custom postage stamper</param>
         /// <param name="chunkCuncorrency">Amount of concurrent chunk hashing tasks. Null to default</param>
         /// <param name="chunkStore">Optional custom chunk store</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The upload evaluation result</returns>
         Task<UploadEvaluationResult> UploadSingleFileAsync(
             Stream stream,
@@ -143,7 +153,8 @@ namespace Etherna.SwarmSdk.Services
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
             IPostageStamper? postageStamper = null,
             int? chunkCuncorrency = null,
-            IChunkStore? chunkStore = null);
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Write data chunks on a local directory, without any manifest
@@ -155,6 +166,7 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="encrypt">True to encrypt</param>
         /// <param name="redundancyLevel">Choose the redundancy level</param>
         /// <param name="chunkCuncorrency">Amount of concurrent chunk hashing tasks. Null to default</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The data root reference</returns>
         Task<SwarmReference> WriteDataChunksAsync(
             IChunkStore chunkStore,
@@ -163,7 +175,8 @@ namespace Etherna.SwarmSdk.Services
             ushort compactLevel = 0,
             bool encrypt = false,
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
-            int? chunkCuncorrency = null);
+            int? chunkCuncorrency = null,
+            CancellationToken cancellationToken = default);
         
         /// <summary>
         /// Write data chunks on a local directory, without any manifest
@@ -175,6 +188,7 @@ namespace Etherna.SwarmSdk.Services
         /// <param name="encrypt">True to encrypt</param>
         /// <param name="redundancyLevel">Choose the redundancy level</param>
         /// <param name="chunkCuncorrency">Amount of concurrent chunk hashing tasks. Null to default</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The data root reference</returns>
         Task<SwarmReference> WriteDataChunksAsync(
             IChunkStore chunkStore,
@@ -183,6 +197,7 @@ namespace Etherna.SwarmSdk.Services
             ushort compactLevel = 0,
             bool encrypt = false,
             RedundancyLevel redundancyLevel = RedundancyLevel.None,
-            int? chunkCuncorrency = null);
+            int? chunkCuncorrency = null,
+            CancellationToken cancellationToken = default);
     }
 }
