@@ -38,6 +38,7 @@ namespace Etherna.SwarmSdk.Manifest
                 chunk,
                 anotherReference,
                 new MemoryChunkStore(),
+                RedundancyLevel.Paranoid,
                 RedundancyStrategy.Data,
                 true,
                 null,
