@@ -36,6 +36,13 @@ namespace Etherna.SwarmSdk.Models
             Action<Mock<IReadOnlyChunkStore>> Asserts,
             SwarmEpochFeedChunk ExpectedResult);
 
+        public enum LookupEntryPoint
+        {
+            BuildNextFeedChunk,
+            BuildNextFeedChunkOfTheBase,
+            TryFindFeedChunkAt
+        }
+
         public record FindStartingEpochOfflineTestElement(
             ulong At,
             SwarmEpochFeedIndex? KnownNearEpoch,
@@ -559,7 +566,8 @@ namespace Etherna.SwarmSdk.Models
                 chunkStoreMock.Object,
                 test.At,
                 test.StartingChunk,
-                new Hasher());
+                new Hasher(),
+                CancellationToken.None);
 
             Assert.Equal(test.ExpectedResult, result);
             test.Asserts(chunkStoreMock);
@@ -605,6 +613,94 @@ namespace Etherna.SwarmSdk.Models
             Assert.Equal(new DateTimeOffset(2107, 03, 04, 22, 02, 45, TimeSpan.Zero), result);
         }
 
+        [Theory]
+        [InlineData(LookupEntryPoint.BuildNextFeedChunk)]
+        [InlineData(LookupEntryPoint.BuildNextFeedChunkOfTheBase)]
+        [InlineData(LookupEntryPoint.TryFindFeedChunkAt)]
+        public async Task LookupCancelledAtItsFirstReadThrowsTheCancellation(LookupEntryPoint entryPoint)
+        {
+            // Arrange.
+            var chunkStore = new PendingReadChunkStore(new MemoryChunkStore(), (_, _) => true);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Act.
+            Task lookup = entryPoint switch
+            {
+                LookupEntryPoint.BuildNextFeedChunk => EpochFeed.BuildNextFeedChunkAsync(
+                    new byte[] { 1, 2, 3 },
+                    (SwarmEpochFeedIndex?)null,
+                    chunkStore,
+                    new SwarmChunkBmt(),
+                    cancellationToken: cancellationTokenSource.Token),
+                LookupEntryPoint.BuildNextFeedChunkOfTheBase => ((SwarmFeedBase)EpochFeed).BuildNextFeedChunkAsync(
+                    new byte[] { 1, 2, 3 },
+                    null,
+                    chunkStore,
+                    new SwarmChunkBmt(),
+                    cancellationToken: cancellationTokenSource.Token),
+                LookupEntryPoint.TryFindFeedChunkAt => EpochFeed.TryFindFeedChunkAtAsync(
+                    7, null, chunkStore, new Hasher(), cancellationTokenSource.Token),
+                _ => throw new ArgumentOutOfRangeException(nameof(entryPoint), entryPoint, null)
+            };
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(1, chunkStore.Reads);
+        }
+
+        /// <summary>
+        /// The lookup of second 7, from the known epoch (6, 1), reads ten epochs through every step it can take.
+        /// Upwards, to find where to start: (6, 1) and its left (4, 1), with no update, their parent (4, 2), with
+        /// none, its left (0, 2), whose update is later than the second, and their parent (0, 3), where it starts.
+        /// Downwards, to get nearer: (4, 2) again, its left (0, 2), which it enters, then (2, 1), which it enters,
+        /// then (3, 0) and (2, 0), with no update
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        [InlineData(4)]
+        [InlineData(5)]
+        [InlineData(6)]
+        [InlineData(7)]
+        [InlineData(8)]
+        [InlineData(9)]
+        [InlineData(10)]
+        public async Task TryFindFeedAtCancelledAtAReadThrowsTheCancellationAtThatRead(int pendingRead)
+        {
+            // Arrange.
+            var innerChunkStore = new MemoryChunkStore();
+            foreach (var (start, level, timeStamp) in new (ulong, byte, long)[] { (0, 2, 9), (0, 3, 1), (2, 1, 2) })
+            {
+                var chunk = SwarmEpochFeedChunk.BuildNew(
+                    EpochFeed,
+                    new SwarmEpochFeedIndex(start, level, new Hasher()),
+                    new byte[] { 1, 2, 3 },
+                    new SwarmChunkBmt(),
+                    DateTimeOffset.FromUnixTimeSeconds(timeStamp));
+                chunk.BuildHash(new Hasher());
+                await innerChunkStore.AddAsync(chunk);
+            }
+            var chunkStore = new PendingReadChunkStore(innerChunkStore, (_, read) => read == pendingRead);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Act.
+            var lookup = EpochFeed.TryFindFeedAtAsync(
+                DateTimeOffset.FromUnixTimeSeconds(7),
+                new SwarmEpochFeedIndex(6, 1, new Hasher()),
+                chunkStore,
+                new Hasher(),
+                cancellationTokenSource.Token);
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(pendingRead, chunkStore.Reads);
+        }
+
         [Theory, MemberData(nameof(TryFindStartingEpochChunkOnlineTests))]
         public async Task TryFindStartingEpochChunkOnline(TryFindStartingEpochChunkOnlineTestElement test)
         {
@@ -614,7 +710,8 @@ namespace Etherna.SwarmSdk.Models
                 chunkStoreMock.Object,
                 test.At,
                 test.EpochIndex,
-                new Hasher());
+                new Hasher(),
+                CancellationToken.None);
         
             Assert.Equal(test.ExpectedResult, result);
             test.Asserts(chunkStoreMock);

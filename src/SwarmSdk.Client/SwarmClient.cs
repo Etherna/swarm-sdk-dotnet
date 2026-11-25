@@ -3507,7 +3507,8 @@ namespace Etherna.SwarmSdk
                 knownNearIndex,
                 new SwarmClientChunkStore(this),
                 chunkBmt,
-                timestamp).ConfigureAwait(false);
+                timestamp,
+                cancellationToken).ConfigureAwait(false);
             feedChunk.Sign(signer, chunkBmt.Hasher);
 
             return await UploadSocAsync(

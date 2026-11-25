@@ -48,7 +48,8 @@ namespace Etherna.SwarmSdk.Models
             SwarmFeedIndexBase? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
             SwarmChunkBmt chunkBmt,
-            DateTimeOffset? timestamp = null)
+            DateTimeOffset? timestamp = null,
+            CancellationToken cancellationToken = default)
         {
             if (knownNearIndex is not (null or SwarmSequenceFeedIndex))
                 throw new ArgumentException("Feed index bust be null or sequence index", nameof(knownNearIndex));
@@ -57,19 +58,22 @@ namespace Etherna.SwarmSdk.Models
                 data,
                 knownNearIndex as SwarmSequenceFeedIndex,
                 chunkStore,
-                chunkBmt).ConfigureAwait(false);
+                chunkBmt,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SwarmSequenceFeedChunk> BuildNextFeedChunkAsync(
             ReadOnlyMemory<byte> data,
             SwarmSequenceFeedIndex? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
-            SwarmChunkBmt chunkBmt)
+            SwarmChunkBmt chunkBmt,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(chunkBmt);
             
             // Find last published chunk.
-            var lastFeedChunk = await TryFindLastFeedChunkAsync(knownNearIndex, chunkStore).ConfigureAwait(false);
+            var lastFeedChunk = await TryFindLastFeedChunkAsync(
+                knownNearIndex, chunkStore, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // Define next sequence index.
             var nextSequenceIndex = lastFeedChunk is null ?
@@ -90,20 +94,23 @@ namespace Etherna.SwarmSdk.Models
             long at,
             SwarmFeedIndexBase? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
-            Hasher hasher)
+            Hasher hasher,
+            CancellationToken cancellationToken = default)
         {
             if (knownNearIndex is not (null or SwarmSequenceFeedIndex))
                 throw new ArgumentException("Feed index bust be null or sequence index", nameof(knownNearIndex));
             
             return await TryFindLastFeedChunkAsync(
                 knownNearIndex as SwarmSequenceFeedIndex,
-                chunkStore).ConfigureAwait(false);
+                chunkStore,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SwarmSequenceFeedChunk?> TryFindLastFeedChunkAsync(
             SwarmSequenceFeedIndex? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
-            TimeSpan? requestsCustomTimeout = null)
+            TimeSpan? requestsCustomTimeout = null,
+            CancellationToken cancellationToken = default)
         {
             // First lookup at the knownNearIndex, or default index(0).
             var hasher = hasherPool.GetResource();
@@ -111,7 +118,8 @@ namespace Etherna.SwarmSdk.Models
             var chunk = await TryGetFeedChunkAsync(
                 knownNearIndex ?? new SwarmSequenceFeedIndex(0),
                 chunkStore,
-                hasher).ConfigureAwait(false);
+                hasher,
+                cancellationToken).ConfigureAwait(false);
                 
             hasherPool.ReturnResource(hasher);
 
@@ -123,7 +131,8 @@ namespace Etherna.SwarmSdk.Models
                 chunkStore,
                 DefaultSearchLevels,
                 sequenceFeedChunk,
-                requestsCustomTimeout).ConfigureAwait(false);
+                requestsCustomTimeout,
+                cancellationToken).ConfigureAwait(false);
         }
 
         // Helpers.
@@ -133,14 +142,15 @@ namespace Etherna.SwarmSdk.Models
             IReadOnlyChunkStore chunkStore,
             int maxSearchLevel,
             SwarmSequenceFeedChunk bestFoundChunk,
-            TimeSpan? requestsCustomTimeout = null)
+            TimeSpan? requestsCustomTimeout,
+            CancellationToken cancellationToken)
         {
             // Lookups on all the levels are requested concurrently. As soon as the highest existing chunk
             // of the searched interval is identified, the result is determined: this happens when a chunk
             // is found at a level, and all the greater levels have already returned as not found. At that
             // point any other still pending lookup is unnecessary, so it gets cancelled, and we can reply
-            // without waiting for it.
-            using var pendingLookupsCts = new CancellationTokenSource();
+            // without waiting for it. The caller cancelling the search cancels them the same way.
+            using var pendingLookupsCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             using var semaphore = new SemaphoreSlim(1, 1);
             List<Task> tasks = [];
 
@@ -216,7 +226,8 @@ namespace Etherna.SwarmSdk.Models
                                     chunkStore,
                                     bestFoundLevel,
                                     bestFoundChunk,
-                                    requestsCustomTimeout).ConfigureAwait(false);
+                                    requestsCustomTimeout,
+                                    cancellationToken).ConfigureAwait(false);
                         }
                         finally
                         {
@@ -228,11 +239,13 @@ namespace Etherna.SwarmSdk.Models
                     {
                         hasherPool.ReturnResource(hasher);
                     }
-                }));
+                }, cancellationToken));
             }
 
             await Task.WhenAll(tasks).ConfigureAwait(false);
 
+            //a request ends the same way whoever cancels it: a search the caller cancelled has no result to answer
+            cancellationToken.ThrowIfCancellationRequested();
             return feedChunkResult;
         }
         

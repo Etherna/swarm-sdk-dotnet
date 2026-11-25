@@ -15,6 +15,7 @@
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Models
@@ -31,7 +32,8 @@ namespace Etherna.SwarmSdk.Models
             SwarmFeedIndexBase? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
             SwarmChunkBmt chunkBmt,
-            DateTimeOffset? timestamp = null)
+            DateTimeOffset? timestamp = null,
+            CancellationToken cancellationToken = default)
         {
             if (knownNearIndex is not (null or SwarmEpochFeedIndex))
                 throw new ArgumentException("Feed index bust be null or epoch index", nameof(knownNearIndex));
@@ -41,7 +43,8 @@ namespace Etherna.SwarmSdk.Models
                 knownNearIndex as SwarmEpochFeedIndex,
                 chunkStore,
                 chunkBmt,
-                timestamp).ConfigureAwait(false);
+                timestamp,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public override SwarmFeedChunkBase SocToFeedChunk(SwarmSoc soc, SwarmFeedIndexBase index) =>
@@ -52,7 +55,8 @@ namespace Etherna.SwarmSdk.Models
             SwarmEpochFeedIndex? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
             SwarmChunkBmt swarmChunkBmt,
-            DateTimeOffset? timestamp = null)
+            DateTimeOffset? timestamp = null,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(swarmChunkBmt);
             
@@ -60,7 +64,7 @@ namespace Etherna.SwarmSdk.Models
 
             // Find last published chunk.
             var lastFeedChunk = await TryFindFeedAtAsync(
-                at, knownNearIndex, chunkStore, swarmChunkBmt.Hasher).ConfigureAwait(false);
+                at, knownNearIndex, chunkStore, swarmChunkBmt.Hasher, cancellationToken).ConfigureAwait(false);
 
             // Define next epoch index.
             SwarmEpochFeedIndex nextEpochIndex;
@@ -87,7 +91,8 @@ namespace Etherna.SwarmSdk.Models
             long at,
             SwarmFeedIndexBase? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
-            Hasher hasher)
+            Hasher hasher,
+            CancellationToken cancellationToken = default)
         {
             if (knownNearIndex is not (null or SwarmEpochFeedIndex))
                 throw new ArgumentException("Feed index bust be null or epoch index", nameof(knownNearIndex));
@@ -96,14 +101,16 @@ namespace Etherna.SwarmSdk.Models
                 DateTimeOffset.FromUnixTimeSeconds(at),
                 knownNearIndex as SwarmEpochFeedIndex,
                 chunkStore,
-                hasher).ConfigureAwait(false);
+                hasher,
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SwarmEpochFeedChunk?> TryFindFeedAtAsync(
             DateTimeOffset at,
             SwarmEpochFeedIndex? knownNearEpochIndex,
             IReadOnlyChunkStore chunkStore,
-            Hasher hasher)
+            Hasher hasher,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(hasher);
             
@@ -167,7 +174,8 @@ namespace Etherna.SwarmSdk.Models
                 chunkStore,
                 atUnixTime,
                 startEpoch,
-                hasher).ConfigureAwait(false);
+                hasher,
+                cancellationToken).ConfigureAwait(false);
 
             if (startChunk is null)
                 return null;
@@ -177,7 +185,8 @@ namespace Etherna.SwarmSdk.Models
                 chunkStore,
                 atUnixTime,
                 startChunk,
-                hasher).ConfigureAwait(false);
+                hasher,
+                cancellationToken).ConfigureAwait(false);
         }
 
         // Helpers.
@@ -185,7 +194,8 @@ namespace Etherna.SwarmSdk.Models
             IReadOnlyChunkStore chunkStore,
             ulong at,
             SwarmEpochFeedChunk currentChunk,
-            Hasher hasher)
+            Hasher hasher,
+            CancellationToken cancellationToken)
         {
             // If currentChunk is at max resolution, return it.
             var currentIndex = (SwarmEpochFeedIndex)currentChunk.Index;
@@ -198,17 +208,21 @@ namespace Etherna.SwarmSdk.Models
 
             // Try chunk on child epoch at date.
             var childIndexAtDate = currentIndex.GetChildAt(at);
-            var childChunkAtDate = await TryGetFeedChunkAsync(childIndexAtDate, chunkStore, hasher).ConfigureAwait(false);
+            var childChunkAtDate = await TryGetFeedChunkAsync(
+                childIndexAtDate, chunkStore, hasher, cancellationToken).ConfigureAwait(false);
             if (childChunkAtDate is SwarmEpochFeedChunk epochChildChunkAtDate
                 && (ulong)epochChildChunkAtDate.TimeStamp.ToUnixTimeSeconds() <= at)
-                return await FindLastEpochChunkBeforeDateAsync(chunkStore, at, epochChildChunkAtDate, hasher).ConfigureAwait(false);
+                return await FindLastEpochChunkBeforeDateAsync(
+                    chunkStore, at, epochChildChunkAtDate, hasher, cancellationToken).ConfigureAwait(false);
 
             // Try left brother if different.
             if (childIndexAtDate.IsRight)
             {
-                var childLeftChunk = await TryGetFeedChunkAsync(childIndexAtDate.Left, chunkStore, hasher).ConfigureAwait(false);
+                var childLeftChunk = await TryGetFeedChunkAsync(
+                    childIndexAtDate.Left, chunkStore, hasher, cancellationToken).ConfigureAwait(false);
                 if (childLeftChunk is SwarmEpochFeedChunk epochChildLeftChunk) //to check timestamp is superfluous in this case
-                    return await FindLastEpochChunkBeforeDateAsync(chunkStore, at, epochChildLeftChunk, hasher).ConfigureAwait(false);
+                    return await FindLastEpochChunkBeforeDateAsync(
+                        chunkStore, at, epochChildLeftChunk, hasher, cancellationToken).ConfigureAwait(false);
             }
 
             return currentChunk;
@@ -252,15 +266,19 @@ namespace Etherna.SwarmSdk.Models
         /// <param name="chunkStore">The chunk store</param>
         /// <param name="at">The searched date</param>
         /// <param name="epochIndex">The epoch to analyze containing current date</param>
+        /// <param name="hasher">The hasher</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>A tuple with found chunk (if any) and updated "at" date</returns>
         internal async Task<SwarmEpochFeedChunk?> TryFindStartingEpochChunkOnlineAsync(
             IReadOnlyChunkStore chunkStore,
             ulong at,
             SwarmEpochFeedIndex epochIndex,
-            Hasher hasher)
+            Hasher hasher,
+            CancellationToken cancellationToken)
         {
             // Try to get chunk payload on network.
-            var chunk = await TryGetFeedChunkAsync(epochIndex, chunkStore, hasher).ConfigureAwait(false);
+            var chunk = await TryGetFeedChunkAsync(
+                epochIndex, chunkStore, hasher, cancellationToken).ConfigureAwait(false);
 
             // If chunk exists and date is prior.
             if (chunk is SwarmEpochFeedChunk epochFeedChunk &&
@@ -269,9 +287,11 @@ namespace Etherna.SwarmSdk.Models
 
             // Else, if chunk is not found, or if chunk timestamp is later than target date.
             if (epochIndex.IsRight)                               //try left
-                return await TryFindStartingEpochChunkOnlineAsync(chunkStore, at, epochIndex.Left, hasher).ConfigureAwait(false);
+                return await TryFindStartingEpochChunkOnlineAsync(
+                    chunkStore, at, epochIndex.Left, hasher, cancellationToken).ConfigureAwait(false);
             if (epochIndex.Level != SwarmEpochFeedIndex.MaxLevel) //try parent
-                return await TryFindStartingEpochChunkOnlineAsync(chunkStore, at, epochIndex.Parent, hasher).ConfigureAwait(false);
+                return await TryFindStartingEpochChunkOnlineAsync(
+                    chunkStore, at, epochIndex.Parent, hasher, cancellationToken).ConfigureAwait(false);
 
             return null;
         }

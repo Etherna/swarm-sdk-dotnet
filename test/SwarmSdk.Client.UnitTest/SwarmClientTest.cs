@@ -13,6 +13,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using Etherna.SwarmSdk.Exceptions;
+using Etherna.SwarmSdk.Hashing.Signer;
 using Etherna.SwarmSdk.Models;
 using Microsoft.Extensions.Time.Testing;
 using System;
@@ -733,6 +734,38 @@ namespace Etherna.SwarmSdk
             
             // Assert.
             Assert.Equal(10, size);
+        }
+        
+        /// <summary>
+        /// The client looks up the last update of the feed on the node, before building the next one
+        /// </summary>
+        [Theory]
+        [InlineData(SwarmFeedType.Epoch)]
+        [InlineData(SwarmFeedType.Sequence)]
+        public async Task UpdateFeedOnAHangingNodePropagatesTheCallerCancellation(SwarmFeedType type)
+        {
+            // Setup.
+            var handler = new HangingHttpMessageHandler();
+            using var swarmClient = new SwarmClient(
+                nodeUrl,
+                SwarmClients.Bee,
+                new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan },
+                timeProvider: new FakeTimeProvider());
+            using var cancellationTokenSource = new CancellationTokenSource();
+            
+            // Run.
+            var task = swarmClient.UpdateFeedAsync(
+                new byte[SwarmFeedTopic.TopicSize],
+                type,
+                new byte[] { 1, 2, 3 },
+                new FakeSigner(),
+                PostageBatchId.Zero,
+                cancellationToken: cancellationTokenSource.Token);
+            await handler.WaitRequestOfAsync(task);
+            await cancellationTokenSource.CancelAsync();
+            
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
         }
         
         [Fact]
