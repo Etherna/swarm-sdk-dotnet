@@ -141,6 +141,12 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
                         // Invoke next stage with parallelism on chunks.
                         //control concurrency
                         await chunkConcurrencySemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            //a slot can be granted while the cancellation arrives: give it back, no chunk starts
+                            chunkConcurrencySemaphore.Release();
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
                     
                         //initialize chunk semaphore, receiving from resources pool
 #pragma warning disable CA2000

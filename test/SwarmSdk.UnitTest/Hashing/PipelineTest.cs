@@ -595,6 +595,7 @@ namespace Etherna.SwarmSdk.Hashing
                 () => pipeline.HashDataAsync(data, cancellationTokenSource.Token));
 
             // Assert.
+            //the write that cancels is the last one: no chunk starts once the cancellation is requested
             Assert.Equal(3, writes);
         }
 
