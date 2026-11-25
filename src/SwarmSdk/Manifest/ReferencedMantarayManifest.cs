@@ -89,7 +89,7 @@ namespace Etherna.SwarmSdk.Manifest
                 null,
                 NodeType.Edge);
             await node.FetchChunkAsync(cancellationToken).ConfigureAwait(false);
-            node.DecodeFromChunk();
+            await node.DecodeFromChunkAsync(cancellationToken).ConfigureAwait(false);
             return new ReferencedMantarayManifest(node);
         }
 

@@ -36,8 +36,9 @@ namespace Etherna.SwarmSdk.Chunks
         
         // Methods.
         /// <summary>
-        /// Traverse the content of a reference, identifying its root chunk: a single owner chunk is the whole
-        /// traversal, a mantaray manifest root is traversed as a manifest, any other chunk as a data chunk
+        /// Traverse the content of a reference, identifying its root: a single owner chunk is the whole traversal,
+        /// any other root is traversed as the chunk tree of a content, and when that content is a mantaray manifest
+        /// node, what it references is traversed too
         /// </summary>
         /// <param name="rootReference">Root traversing chunk</param>
         public async Task TraverseAsync(
@@ -76,7 +77,21 @@ namespace Etherna.SwarmSdk.Chunks
             if (rootChunk is not SwarmCac rootCac)
                 return;
             
-            // Identify if is manifest root chunk.
+            // Traverse the chunk tree at the root, a raw content or a manifest node of any size. The data loop
+            // marks each dequeued reference as visited, the root included: start from an empty set.
+            HashSet<SwarmReference> visitedReferences = [];
+            await TraverseDataFromChunkHelperAsync(
+                rootCac,
+                rootReference,
+                visitedReferences,
+                onChunkFound,
+                onChunkNotFound,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                includeParities,
+                cancellationToken).ConfigureAwait(false);
+            
+            // Identify if it is a manifest root node.
             var rootNode = new ReferencedMantarayNode(
                 rootCac,
                 rootReference,
@@ -88,29 +103,21 @@ namespace Etherna.SwarmSdk.Chunks
                 NodeType.Edge);
             try
             {
-                rootNode.DecodeFromChunk();
+                await rootNode.DecodeFromChunkAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (InvalidOperationException) //in case it's not a manifest
             {
-                // The data loop marks each dequeued reference as visited, the root included: start from an empty set.
-                await TraverseDataFromChunkHelperAsync(
-                    rootCac,
-                    rootReference,
-                    [],
-                    onChunkFound,
-                    onChunkNotFound,
-                    redundancyStrategy,
-                    redundancyStrategyFallback,
-                    includeParities,
-                    cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            catch (KeyNotFoundException) //chunks of the tree are missing, and reported: what it is can't be told
+            {
                 return;
             }
 
-            // Traverse as manifest. The decoded node helper doesn't mark its own node as visited, the resolving
-            // helper does it before reading a node: the root is marked here, so a fork pointing back to it is skipped.
+            // Traverse as manifest. The root is marked as visited, so a fork pointing back to it is skipped.
             await TraverseMantarayNodeFromDecodedHelperAsync(
                 rootNode,
-                [rootReference],
+                visitedReferences,
                 onChunkFound,
                 onInvalidChunkFound,
                 onChunkNotFound,
@@ -401,8 +408,6 @@ namespace Etherna.SwarmSdk.Chunks
             bool includeParities,
             CancellationToken cancellationToken)
         {
-            visitedReferences.Add(reference);
-            
             // Resolve node chunk.
             var nodeChunk = await TryGetChunkAsync(
                 reference.Hash,
@@ -411,15 +416,30 @@ namespace Etherna.SwarmSdk.Chunks
             var nodeShardReference = new SwarmShardReference(reference, false);
             if (nodeChunk == null)
             {
+                visitedReferences.Add(reference);
                 await onChunkNotFound(nodeShardReference).ConfigureAwait(false);
                 return;
             }
             if (nodeChunk is not SwarmCac nodeCac) //soc is not a manifest node
             {
+                visitedReferences.Add(reference);
                 await onInvalidChunkFound(nodeChunk, nodeShardReference).ConfigureAwait(false);
                 return;
             }
             await onChunkFound(nodeCac, nodeShardReference).ConfigureAwait(false);
+            
+            // Traverse the chunk tree of the node: with enough forks it spans more chunks than its root. The data
+            // loop marks the node as visited, so a fork pointing back to it is skipped.
+            await TraverseDataFromChunkHelperAsync(
+                nodeCac,
+                reference,
+                visitedReferences,
+                onChunkFound,
+                onChunkNotFound,
+                redundancyStrategy,
+                redundancyStrategyFallback,
+                includeParities,
+                cancellationToken).ConfigureAwait(false);
             
             // Build and decode node.
             var manifestNode = new ReferencedMantarayNode(
@@ -431,7 +451,14 @@ namespace Etherna.SwarmSdk.Chunks
                 redundancyStrategyFallback,
                 metadata,
                 nodeTypeFlags);
-            manifestNode.DecodeFromChunk();
+            try
+            {
+                await manifestNode.DecodeFromChunkAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (KeyNotFoundException) //chunks of the node are missing, and reported: its forks can't be read
+            {
+                return;
+            }
             
             await TraverseMantarayNodeFromDecodedHelperAsync(
                 manifestNode,

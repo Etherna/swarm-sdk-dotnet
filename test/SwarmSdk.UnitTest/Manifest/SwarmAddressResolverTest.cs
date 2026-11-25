@@ -13,6 +13,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using Etherna.SwarmSdk.Chunks;
+using Etherna.SwarmSdk.Extensions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
@@ -23,6 +24,7 @@ using Moq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -142,6 +144,52 @@ namespace Etherna.SwarmSdk.Manifest
         }
 
         [Fact]
+        public async Task ResolveReferenceAsync_ThroughALargeNodeMissingAChunk_RecoversItFromItsParities()
+        {
+            // Setup.
+            var manifestData = await BuildManyFilesManifestAsync(40, "", RedundancyLevel.Medium, false);
+
+            //remove a data chunk of the root node, leaving its parities
+            var rootChunk = (SwarmCac)await manifestData.ChunkStore.GetAsync(manifestData.RootReference.Hash);
+            var rootChildReferences = ((SwarmDecodedIntermediateCac)rootChunk.Decode(
+                manifestData.RootReference, new Hasher())).ChildReferences;
+            await manifestData.ChunkStore.RemoveAsync(rootChildReferences.First(r => !r.IsParity).Reference.Hash);
+
+            // Run.
+            var reference = await SwarmAddressResolver.ResolveReferenceAsync(
+                new SwarmAddress(manifestData.RootReference, "a-file-000.bin"),
+                manifestData.ChunkStore,
+                RedundancyLevel.None);
+
+            // Assert.
+            Assert.Contains(rootChildReferences, r => r.IsParity);
+            Assert.Equal(manifestData.Entries["a-file-000.bin"].Reference, reference);
+        }
+
+        [Theory]
+        [InlineData("", RedundancyLevel.None, false)] //the root node spans more chunks
+        [InlineData("docs/", RedundancyLevel.None, false)] //a fork node spans more chunks
+        [InlineData("", RedundancyLevel.Medium, true)] //with parities and encrypted references
+        public async Task ResolveReferenceAsync_ThroughANodeLargerThanAChunk_ResolvesEveryPath(
+            string directory, RedundancyLevel level, bool encrypted)
+        {
+            // Setup.
+            var manifestData = await BuildManyFilesManifestAsync(26, directory, level, encrypted);
+
+            foreach (var (path, entry) in manifestData.Entries)
+            {
+                // Run.
+                var reference = await SwarmAddressResolver.ResolveReferenceAsync(
+                    new SwarmAddress(manifestData.RootReference, path),
+                    manifestData.ChunkStore,
+                    level);
+
+                // Assert.
+                Assert.Equal(entry.Reference, reference);
+            }
+        }
+
+        [Fact]
         public async Task ResolveReferenceAsync_WithARedundancyLevel_ResolvesAForkNodeFromItsReplicas()
         {
             // Setup.
@@ -257,6 +305,53 @@ namespace Etherna.SwarmSdk.Manifest
         }
 
         // Helpers.
+        /// <summary>
+        /// A manifest whose node of the given directory forks to a file per first character, each with its
+        /// metadata: 26 of them make a node larger than a chunk
+        /// </summary>
+        private static async Task<TestManifestData> BuildManyFilesManifestAsync(
+            int filesCount, string directory, RedundancyLevel redundancyLevel, bool encrypt)
+        {
+            const string firstChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            var chunkStore = new MemoryChunkStore();
+            var postageStamper = new FakePostageStamper();
+            var manifest = new WritableMantarayManifest(
+                chunkStore,
+                postageStamper,
+                redundancyLevel,
+                encrypt,
+                0,
+                null);
+
+            var entries = new Dictionary<string, ManifestEntry>();
+            for (var i = 0; i < filesCount; i++)
+            {
+                var fileName = $"{firstChars[i]}-file-{i:000}.bin";
+                var fileData = new byte[1024];
+                new Random(i).NextBytes(fileData);
+
+                using var hasherPipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                    chunkStore,
+                    postageStamper,
+                    redundancyLevel,
+                    encrypt,
+                    0,
+                    null);
+                var entry = ManifestEntry.NewFile(
+                    await hasherPipeline.HashDataAsync(fileData),
+                    new Dictionary<string, string>
+                    {
+                        [ManifestEntry.ContentTypeKey] = "application/octet-stream",
+                        [ManifestEntry.FilenameKey] = fileName
+                    });
+
+                manifest.Add(directory + fileName, entry);
+                entries[directory + fileName] = entry;
+            }
+
+            return new TestManifestData(chunkStore, await manifest.GetReferenceAsync(new Hasher()), entries);
+        }
+
         private static async Task<TestManifestData> BuildTestManifestAsync()
         {
             var chunkStore = new MemoryChunkStore();
