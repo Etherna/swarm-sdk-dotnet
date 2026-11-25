@@ -98,7 +98,9 @@ namespace Etherna.SwarmSdk.Manifest
                 cancellationToken).ConfigureAwait(false);
 
             return await rootManifest.GetResourceInfoAsync(
-                address.Path, manifestPathResolver).ConfigureAwait(false);
+                address.Path,
+                manifestPathResolver,
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>

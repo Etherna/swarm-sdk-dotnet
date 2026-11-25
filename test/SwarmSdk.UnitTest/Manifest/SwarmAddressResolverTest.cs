@@ -169,6 +169,37 @@ namespace Etherna.SwarmSdk.Manifest
         }
 
         [Fact]
+        public async Task ResolveResourceInfoAsync_CancelledWhileAForkNodeIsFetched_ThrowsTheCancellation()
+        {
+            // Setup.
+            var manifestData = await BuildTestManifestAsync();
+            var forkNodeHash = await GetIndexForkNodeHashAsync(manifestData);
+
+            //a store honouring the token it is given, whatever the token source of the caller says
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var chunkStoreMock = new Mock<IReadOnlyChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.GetAsync(It.IsAny<SwarmHash>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>((hash, cancellationToken) =>
+                {
+                    if (hash == forkNodeHash)
+                        cancellationTokenSource.Cancel();
+                    return cancellationToken.IsCancellationRequested ?
+                        Task.FromCanceled<SwarmChunk>(cancellationToken) :
+                        manifestData.ChunkStore.GetAsync(hash, cancellationToken);
+                });
+
+            // Run & Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => SwarmAddressResolver.ResolveResourceInfoAsync(
+                    new SwarmAddress(manifestData.RootReference, "index.html"),
+                    chunkStoreMock.Object,
+                    ManifestPathResolver.IdentityResolver,
+                    RedundancyLevel.None,
+                    cancellationToken: cancellationTokenSource.Token));
+        }
+
+        [Fact]
         public async Task ResolveResourceInfoAsync_ResolvesPathToReferenceAndMetadata()
         {
             // Setup.

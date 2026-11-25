@@ -16,9 +16,12 @@ using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
+using Moq;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -522,6 +525,114 @@ namespace Etherna.SwarmSdk.Hashing
         }
         
         // Tests.
+        [Fact]
+        public async Task CancelledRunLeavesNoChunkWriteInFlight()
+        {
+            // Setup.
+            var data = new byte[SwarmCac.DataSize * 64];
+            new Random(0).NextBytes(data);
+
+            //a store that cancels the run at its first write, and takes its time to end each one
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var startedWrites = 0;
+            var endedWrites = 0;
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmChunk, CancellationToken>(async (_, _) =>
+                {
+                    Interlocked.Increment(ref startedWrites);
+                    await cancellationTokenSource.CancelAsync();
+                    await Task.Delay(50);
+                    Interlocked.Increment(ref endedWrites);
+                    return true;
+                });
+            using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                chunkStoreMock.Object,
+                new FakePostageStamper(),
+                RedundancyLevel.None,
+                false,
+                0,
+                4);
+
+            // Run.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => pipeline.HashDataAsync(data, cancellationTokenSource.Token));
+
+            // Assert.
+            Assert.Equal(startedWrites, endedWrites);
+        }
+
+        [Fact]
+        public async Task CancelledRunStopsFeedingChunksAndThrowsTheCancellation()
+        {
+            // Setup.
+            var data = new byte[SwarmCac.DataSize * 64];
+            new Random(0).NextBytes(data);
+
+            //a store that cancels the run at its third write
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var writes = 0;
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmChunk, CancellationToken>(async (_, _) =>
+                {
+                    if (Interlocked.Increment(ref writes) == 3)
+                        await cancellationTokenSource.CancelAsync();
+                    return true;
+                });
+            using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                chunkStoreMock.Object,
+                new FakePostageStamper(),
+                RedundancyLevel.None,
+                false,
+                0,
+                1);
+
+            // Run.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => pipeline.HashDataAsync(data, cancellationTokenSource.Token));
+
+            // Assert.
+            Assert.Equal(3, writes);
+        }
+
+        [Fact]
+        public async Task EveryChunkWriteReceivesTheTokenOfTheRun()
+        {
+            // Setup.
+            var data = new byte[SwarmCac.DataSize * 3];
+            new Random(0).NextBytes(data);
+
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var writes = new ConcurrentQueue<(SwarmChunk Chunk, CancellationToken Token)>();
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmChunk, CancellationToken>((chunk, cancellationToken) =>
+                {
+                    writes.Enqueue((chunk, cancellationToken));
+                    return Task.FromResult(true);
+                });
+            using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                chunkStoreMock.Object,
+                new FakePostageStamper(),
+                RedundancyLevel.Medium,
+                false,
+                0,
+                null);
+
+            // Run.
+            await pipeline.HashDataAsync(data, cancellationTokenSource.Token);
+
+            // Assert.
+            //the data chunks with their parities and their root, and the replicas of the root
+            Assert.True(writes.Count(w => w.Chunk is SwarmCac) > 4);
+            Assert.Equal(2, writes.Count(w => w.Chunk is SwarmSoc));
+            Assert.All(writes, w => Assert.Equal(cancellationTokenSource.Token, w.Token));
+        }
+
         [Theory]
         [InlineData(0, "b34ca8c22b9e982354f9c7f50b470d66db428d880c8a904d5fe4ec9713171526")]         // 0B
         [InlineData(1, "73d7beee42b30991aff05c6f693e6708120aaa513e78e7c0798b5ace1687e4d3")]         // 1B

@@ -16,6 +16,7 @@ using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Hashing.Pipeline
@@ -32,14 +33,16 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
         /// Consume a byte array and returns a Swarm hash as result
         /// </summary>
         /// <param name="data">Input data</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>Resulting swarm hash</returns>
-        Task<SwarmReference> HashDataAsync(byte[] data);
+        Task<SwarmReference> HashDataAsync(byte[] data, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Consume a stream slicing it in chunk size parts, and returns a Swarm hash as result
         /// </summary>
         /// <param name="dataStream">Input data stream</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>Resulting swarm hash</returns>
-        Task<SwarmReference> HashDataAsync(Stream dataStream);
+        Task<SwarmReference> HashDataAsync(Stream dataStream, CancellationToken cancellationToken = default);
     }
 }

@@ -19,6 +19,7 @@ using Etherna.SwarmSdk.Stores;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Hashing.Pipeline
@@ -84,7 +85,8 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
             await nextStage.FeedAsync(args).ConfigureAwait(false);
         }
 
-        public Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt) => nextStage.SumAsync(swarmChunkBmt);
+        public Task<SwarmReference> SumAsync(SwarmChunkBmt swarmChunkBmt, CancellationToken cancellationToken) =>
+            nextStage.SumAsync(swarmChunkBmt, cancellationToken);
         
         // Helpers.
         private async Task<EncryptedChunkResult> GetBestEncryptedChunkAsync(

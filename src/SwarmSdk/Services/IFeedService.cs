@@ -17,6 +17,7 @@ using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Manifest;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Services
@@ -24,13 +25,15 @@ namespace Etherna.SwarmSdk.Services
     public interface IFeedService
     {
         Task<SwarmFeedBase?> TryDecodeFeedManifestAsync(
-            ReferencedMantarayManifest manifest);
+            ReferencedMantarayManifest manifest,
+            CancellationToken cancellationToken = default);
 
         Task<SwarmReference> UploadFeedManifestAsync(
             SwarmFeedBase swarmFeed,
             Hasher hasher,
             ushort compactLevel = 0,
             IPostageStamper? postageStamper = null,
-            IChunkStore? chunkStore = null);
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default);
     }
 }

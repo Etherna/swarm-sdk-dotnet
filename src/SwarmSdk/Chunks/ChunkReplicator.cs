@@ -19,6 +19,7 @@ using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Chunks
@@ -50,7 +51,8 @@ namespace Etherna.SwarmSdk.Chunks
         // Methods.
         public async Task AddChunkReplicasAsync(
             SwarmCac chunk,
-            Hasher hasher)
+            Hasher hasher,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(chunk);
             
@@ -65,7 +67,7 @@ namespace Etherna.SwarmSdk.Chunks
                 replicaSoc.Sign(signer, hasher);
 
                 postageStamper.Stamp(replicaHeader.Hash);
-                tasks.Add(chunkStore.AddAsync(replicaSoc));
+                tasks.Add(chunkStore.AddAsync(replicaSoc, cancellationToken));
             }
 
             await Task.WhenAll(tasks).ConfigureAwait(false);

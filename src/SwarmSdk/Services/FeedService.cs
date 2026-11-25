@@ -22,6 +22,7 @@ using Etherna.SwarmSdk.Stores;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Services
@@ -36,13 +37,15 @@ namespace Etherna.SwarmSdk.Services
         // Methods.
         [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
         public async Task<SwarmFeedBase?> TryDecodeFeedManifestAsync(
-            ReferencedMantarayManifest manifest)
+            ReferencedMantarayManifest manifest,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(manifest);
             
             var metadata = (await manifest.GetMetadataAsync(
                 MantarayManifestBase.RootPath,
-                ManifestPathResolver.IdentityResolver).ConfigureAwait(false)).Result;
+                ManifestPathResolver.IdentityResolver,
+                cancellationToken).ConfigureAwait(false)).Result;
             if (!metadata.TryGetValue(FeedMetadataEntryOwner, out var hexOwner))
                 return null;
             if (!metadata.TryGetValue(FeedMetadataEntryTopic, out var hexTopic))
@@ -73,7 +76,8 @@ namespace Etherna.SwarmSdk.Services
             Hasher hasher,
             ushort compactLevel = 0,
             IPostageStamper? postageStamper = null,
-            IChunkStore? chunkStore = null)
+            IChunkStore? chunkStore = null,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(swarmFeed);
             
@@ -104,7 +108,7 @@ namespace Etherna.SwarmSdk.Services
                         [FeedMetadataEntryType] = swarmFeed.Type.ToString()
                     }));
 
-            return await feedManifest.GetReferenceAsync(hasher).ConfigureAwait(false);
+            return await feedManifest.GetReferenceAsync(hasher, cancellationToken).ConfigureAwait(false);
         }
     }
 }

@@ -97,7 +97,9 @@ namespace Etherna.SwarmSdk.Manifest
         public override IReadOnlyMantarayNode RootNode => rootNode;
 
         // Methods.
-        public override Task<SwarmReference> GetReferenceAsync(Hasher hasher) =>
+        public override Task<SwarmReference> GetReferenceAsync(
+            Hasher hasher,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult(RootNode.Reference);
     }
 }
