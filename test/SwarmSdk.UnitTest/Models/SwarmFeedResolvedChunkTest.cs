@@ -15,6 +15,7 @@
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Stores;
 using Moq;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -110,6 +111,31 @@ namespace Etherna.SwarmSdk.Models
             // Assert.
             Assert.Equal(SwarmFeedPayloadVersion.V2, result.Version);
             Assert.Equal(feedChunk.InnerChunk.Hash, result.Chunk.Hash);
+        }
+
+        [Fact]
+        public async Task ResolveSequenceCancelledAtTheLegacyReadThrowsTheCancellation()
+        {
+            // Setup.
+            // A legacy-sized payload makes the resolution read the chunk it would reference.
+            var payload = new byte[SwarmSequenceFeedChunk.LegacyTimeStampSize + SwarmHash.HashSize];
+            var feedChunk = SwarmSequenceFeedChunk.BuildNew(
+                new SwarmSequenceFeed(Owner, Topic),
+                new SwarmSequenceFeedIndex(0),
+                BuildSpanData(payload),
+                new SwarmChunkBmt());
+            var chunkStore = new PendingReadChunkStore(new MemoryChunkStore(), (_, _) => true);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Action.
+            var resolution = feedChunk.ResolveWrappedChunkAsync(
+                new SwarmChunkBmt(), chunkStore, cancellationTokenSource.Token);
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => resolution.WaitAsync(TimeSpan.FromSeconds(10)));
         }
 
         [Fact]

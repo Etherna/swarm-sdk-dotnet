@@ -15,6 +15,7 @@
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Models
@@ -42,9 +43,11 @@ namespace Etherna.SwarmSdk.Models
         /// </summary>
         /// <param name="swarmChunkBmt">The BMT used to rebuild the embedded chunk when needed.</param>
         /// <param name="chunkStore">The store used to resolve a legacy reference.</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         public abstract Task<SwarmFeedResolvedChunk> ResolveWrappedChunkAsync(
             SwarmChunkBmt swarmChunkBmt,
-            IReadOnlyChunkStore chunkStore);
+            IReadOnlyChunkStore chunkStore,
+            CancellationToken cancellationToken = default);
         
         // Static methods.
         public static SwarmHash BuildHash(

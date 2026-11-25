@@ -14,6 +14,7 @@
 
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Models
@@ -87,7 +88,8 @@ namespace Etherna.SwarmSdk.Models
         // Methods.
         public override async Task<SwarmFeedResolvedChunk> ResolveWrappedChunkAsync(
             SwarmChunkBmt swarmChunkBmt,
-            IReadOnlyChunkStore chunkStore)
+            IReadOnlyChunkStore chunkStore,
+            CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(chunkStore);
 
@@ -102,7 +104,7 @@ namespace Etherna.SwarmSdk.Models
             // Bee is non-deterministic (it may 404 or serve the payload depending on which lookup wins
             // the race), while we deterministically return the embedded payload we already hold.
             if (IsLegacyLengthPayload &&
-                await chunkStore.TryGetAsync(new SwarmHash(FeedPayload[LegacyTimeStampSize..]))
+                await chunkStore.TryGetAsync(new SwarmHash(FeedPayload[LegacyTimeStampSize..]), cancellationToken)
                     .ConfigureAwait(false) is SwarmCac legacyChunk)
                 return new SwarmFeedResolvedChunk(legacyChunk, SwarmFeedPayloadVersion.V1);
 

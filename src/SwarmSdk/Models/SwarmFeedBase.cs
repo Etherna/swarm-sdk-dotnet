@@ -42,7 +42,8 @@ namespace Etherna.SwarmSdk.Models
             SwarmFeedIndexBase? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
             SwarmChunkBmt chunkBmt,
-            DateTimeOffset? timestamp = null);
+            DateTimeOffset? timestamp = null,
+            CancellationToken cancellationToken = default);
         
         public abstract SwarmFeedChunkBase SocToFeedChunk(SwarmSoc soc, SwarmFeedIndexBase index);
 
@@ -52,12 +53,15 @@ namespace Etherna.SwarmSdk.Models
         /// <param name="at">The time to search</param>
         /// <param name="knownNearIndex">Another known existing index, near to looked time. Helps to perform lookup quicker</param>
         /// <param name="chunkStore">The chunk store</param>
+        /// <param name="hasher">The hasher</param>
+        /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The found feed chunk, or null</returns>
         public abstract Task<SwarmFeedChunkBase?> TryFindFeedChunkAtAsync(
             long at,
             SwarmFeedIndexBase? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
-            Hasher hasher);
+            Hasher hasher,
+            CancellationToken cancellationToken = default);
 
         public async Task<SwarmFeedChunkBase?> TryGetFeedChunkAsync(
             SwarmFeedIndexBase index,

@@ -30,6 +30,13 @@ namespace Etherna.SwarmSdk.Models
     public class SwarmSequenceFeedTest
     {
         // Internal classes.
+        public enum LookupEntryPoint
+        {
+            BuildNextFeedChunk,
+            BuildNextFeedChunkOfTheBase,
+            TryFindFeedChunkAt
+        }
+
         public record LookupSequenceFeedTestElement(
             SwarmSequenceFeedIndex? KnownNearIndex,
             Action<Mock<IReadOnlyChunkStore>> SetupChunkStore,
@@ -164,6 +171,43 @@ namespace Etherna.SwarmSdk.Models
 
         // Tests.
         
+        [Theory]
+        [InlineData(LookupEntryPoint.BuildNextFeedChunk)]
+        [InlineData(LookupEntryPoint.BuildNextFeedChunkOfTheBase)]
+        [InlineData(LookupEntryPoint.TryFindFeedChunkAt)]
+        public async Task LookupCancelledAtItsFirstReadThrowsTheCancellation(LookupEntryPoint entryPoint)
+        {
+            // Setup.
+            var chunkStore = new PendingReadChunkStore(new MemoryChunkStore(), (_, _) => true);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Act.
+            Task lookup = entryPoint switch
+            {
+                LookupEntryPoint.BuildNextFeedChunk => SequenceFeed.BuildNextFeedChunkAsync(
+                    new byte[] { 1, 2, 3 },
+                    (SwarmSequenceFeedIndex?)null,
+                    chunkStore,
+                    new SwarmChunkBmt(),
+                    cancellationTokenSource.Token),
+                LookupEntryPoint.BuildNextFeedChunkOfTheBase => ((SwarmFeedBase)SequenceFeed).BuildNextFeedChunkAsync(
+                    new byte[] { 1, 2, 3 },
+                    null,
+                    chunkStore,
+                    new SwarmChunkBmt(),
+                    cancellationToken: cancellationTokenSource.Token),
+                LookupEntryPoint.TryFindFeedChunkAt => SequenceFeed.TryFindFeedChunkAtAsync(
+                    0, null, chunkStore, new Hasher(), cancellationTokenSource.Token),
+                _ => throw new ArgumentOutOfRangeException(nameof(entryPoint), entryPoint, null)
+            };
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(1, chunkStore.Reads);
+        }
+
         [Theory, MemberData(nameof(LookupSequenceFeedTests))]
         public async Task LookupSequenceFeed(LookupSequenceFeedTestElement test)
         {
@@ -257,6 +301,68 @@ namespace Etherna.SwarmSdk.Models
             Assert.True(lookupTask.IsCompleted, "Lookup did not terminate the unnecessary pending requests.");
             var result = await lookupTask;
             Assert.Equal(BuildSequenceFeedChunk(10).Hash, result?.Hash);
+        }
+
+        [Fact]
+        public async Task TryFindLastFeedChunkCancelledAfterItsFirstReadStartsNoOtherRead()
+        {
+            // Setup.
+            // A store that cancels the caller while it answers index 0, the first read of the lookup.
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var firstChunk = BuildSequenceFeedChunk(0);
+            var reads = 0;
+            chunkStoreMock.Setup(c => c.TryGetAsync(
+                    It.IsAny<SwarmHash>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>(async (hash, _) =>
+                {
+                    Interlocked.Increment(ref reads);
+                    if (hash != firstChunk.Hash)
+                        return null;
+                    await cancellationTokenSource.CancelAsync();
+                    return firstChunk;
+                });
+
+            // Act.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => SequenceFeed.TryFindLastFeedChunkAsync(
+                    null, chunkStoreMock.Object, cancellationToken: cancellationTokenSource.Token));
+
+            // Assert.
+            Assert.Equal(1, reads);
+        }
+
+        /// <summary>
+        /// Over a feed updated up to index 10 the lookup reads index 0, then 1, 3, 7, 15 and on up to 255 together,
+        /// then 8, 10 and 14 together, then 11 and 13 together. Each pending index here is one whose answer the
+        /// lookup can't tell its result without
+        /// </summary>
+        [Theory]
+        [InlineData(0UL)]
+        [InlineData(13UL)]
+        [InlineData(14UL)]
+        [InlineData(255UL)]
+        public async Task TryFindLastFeedChunkCancelledAtAReadThrowsTheCancellation(ulong pendingIndex)
+        {
+            // Setup.
+            // With the clock frozen no request ends by its timeout: a pending read ends only when its token
+            // is cancelled.
+            var sequenceFeed = new SwarmSequenceFeed(SequenceFeed.Owner, SequenceFeed.Topic, new FakeTimeProvider());
+            var innerChunkStore = new MemoryChunkStore();
+            for (ulong i = 0; i <= 10; i++)
+                await innerChunkStore.AddAsync(BuildSequenceFeedChunk(i));
+            var pendingHash = sequenceFeed.BuildHash(new SwarmSequenceFeedIndex(pendingIndex), new Hasher());
+            var chunkStore = new PendingReadChunkStore(innerChunkStore, (hash, _) => hash == pendingHash);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Act.
+            var lookup = sequenceFeed.TryFindLastFeedChunkAsync(
+                null, chunkStore, cancellationToken: cancellationTokenSource.Token);
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(10)));
         }
 
         // Helpers.

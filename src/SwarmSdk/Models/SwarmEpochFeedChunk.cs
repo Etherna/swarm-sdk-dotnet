@@ -15,6 +15,7 @@
 using Etherna.SwarmSdk.Extensions;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Models
@@ -84,7 +85,8 @@ namespace Etherna.SwarmSdk.Models
         // Methods.
         public override Task<SwarmFeedResolvedChunk> ResolveWrappedChunkAsync(
             SwarmChunkBmt swarmChunkBmt,
-            IReadOnlyChunkStore chunkStore) =>
+            IReadOnlyChunkStore chunkStore,
+            CancellationToken cancellationToken = default) =>
             Task.FromResult(new SwarmFeedResolvedChunk(UnwrapDataChunk(swarmChunkBmt), SwarmFeedPayloadVersion.V2));
         
         public SwarmCac UnwrapDataChunk(
