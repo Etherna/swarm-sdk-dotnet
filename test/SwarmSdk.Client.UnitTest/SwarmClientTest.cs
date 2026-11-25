@@ -16,6 +16,7 @@ using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Models;
 using Microsoft.Extensions.Time.Testing;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -294,6 +295,80 @@ namespace Etherna.SwarmSdk
             Assert.Equal($"?amount={AboveLongAmount}", request.RequestUri.Query);
         }
         
+        [Theory]
+        [InlineData(SwarmClients.Bee)]
+        [InlineData(SwarmClients.Beehive)]
+        public async Task GetBytesHeadersAnswersTheHeadersOfTheContent(SwarmClients apiCompatibility)
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK, "0123456789");
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var headers = await swarmClient.GetBytesHeadersAsync(reference);
+            
+            // Assert.
+            Assert.Equal(10, headers.ContentLength);
+            Assert.Equal("application/json", headers.ContentType?.MediaType);
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Head, request.Method);
+            Assert.Equal($"/bytes/{reference}", request.RequestUri!.AbsolutePath);
+        }
+        
+        [Theory]
+        [InlineData(SwarmClients.Bee)]
+        [InlineData(SwarmClients.Beehive)]
+        public async Task GetFileAnswersTheHeadersOfTheFileWithItsData(SwarmClients apiCompatibility)
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.OK,
+                "0123456789",
+                new Dictionary<string, string> { ["ETag"] = $"\"{reference}\"" });
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            using var response = await swarmClient.GetFileAsync(new SwarmAddress(reference, "index.html"));
+            
+            // Assert.
+            Assert.Equal(10, response.Headers.ContentLength);
+            Assert.Equal(reference, response.Headers.ContentReference);
+            Assert.Equal("application/json", response.Headers.ContentType?.MediaType);
+            Assert.False(response.Headers.IsFeed);
+            using var reader = new StreamReader(response.Stream);
+            Assert.Equal("0123456789", await reader.ReadToEndAsync());
+        }
+        
+        /// <summary>
+        /// A proxy in front of the node, or HTTP/2, hands the names of the headers in lower case
+        /// </summary>
+        [Theory]
+        [InlineData(SwarmClients.Bee)]
+        [InlineData(SwarmClients.Beehive)]
+        public async Task GetFileReadsTheHeadersWhateverTheCaseOfTheirNames(SwarmClients apiCompatibility)
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.OK,
+                responseHeaders: new Dictionary<string, string>
+                {
+                    ["etag"] = $"\"{reference}\"",
+                    ["swarm-feed-index"] = "0000000000000003"
+                });
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            using var response = await swarmClient.GetFileAsync(new SwarmAddress(reference, "index.html"));
+            
+            // Assert.
+            Assert.Equal(reference, response.Headers.ContentReference);
+            Assert.True(response.Headers.IsFeed);
+            Assert.Equal("0000000000000003", Assert.Single(response.Headers.All[SwarmHttpConsts.SwarmFeedIndexHeader]));
+        }
+        
         [Fact]
         public async Task GetHealthOnAHangingNodePropagatesTheCallerCancellation()
         {
@@ -536,6 +611,128 @@ namespace Etherna.SwarmSdk
             Assert.Equal(HttpMethod.Patch, request.Method);
             Assert.Equal($"/stamps/topup/{batchId}/{AboveLongAmount}", request.RequestUri!.AbsolutePath);
             Assert.Equal(AboveLongAmount, Assert.Single(request.Headers.GetValues("gas-price")));
+        }
+        
+        /// <summary>
+        /// A node answers a HEAD with no body, whatever its status
+        /// </summary>
+        [Theory]
+        [InlineData(SwarmClients.Bee, null)]
+        [InlineData(SwarmClients.Bee, "index.html")]
+        [InlineData(SwarmClients.Beehive, "index.html")]
+        public async Task TryGetFileHeadersAnswersNullOnNotFound(SwarmClients apiCompatibility, string? path)
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.NotFound);
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var headers = await swarmClient.TryGetFileHeadersAsync(new SwarmAddress(reference, path));
+            
+            // Assert.
+            Assert.Null(headers);
+        }
+        
+        /// <summary>
+        /// A bee node answers the headers of a file with or without a path through two requests of its API
+        /// </summary>
+        [Theory]
+        [InlineData(SwarmClients.Bee, null)]
+        [InlineData(SwarmClients.Bee, "index.html")]
+        [InlineData(SwarmClients.Beehive, "index.html")]
+        public async Task TryGetFileHeadersAnswersTheHeadersOfTheFile(SwarmClients apiCompatibility, string? path)
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.OK,
+                "0123456789",
+                new Dictionary<string, string>
+                {
+                    ["Content-Disposition"] = "inline; filename=\"index.html\"",
+                    ["ETag"] = $"\"{reference}\""
+                });
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var headers = await swarmClient.TryGetFileHeadersAsync(new SwarmAddress(reference, path));
+            
+            // Assert.
+            Assert.NotNull(headers);
+            Assert.Equal("inline", headers.ContentDisposition?.DispositionType);
+            Assert.Equal(10, headers.ContentLength);
+            Assert.Equal(reference, headers.ContentReference);
+            Assert.Equal("application/json", headers.ContentType?.MediaType);
+            var request = Assert.Single(handler.Requests);
+            Assert.Equal(HttpMethod.Head, request.Method);
+            Assert.StartsWith($"/bzz/{reference}", request.RequestUri!.AbsolutePath, StringComparison.Ordinal);
+        }
+        
+        [Theory]
+        [InlineData(SwarmClients.Bee, null, HttpStatusCode.InternalServerError)]
+        [InlineData(SwarmClients.Bee, "index.html", HttpStatusCode.ServiceUnavailable)]
+        [InlineData(SwarmClients.Beehive, "index.html", HttpStatusCode.InternalServerError)]
+        public async Task TryGetFileHeadersPropagatesNodeError(
+            SwarmClients apiCompatibility, string? path, HttpStatusCode statusCode)
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(statusCode);
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var thrown = await Assert.ThrowsAnyAsync<SwarmSdkApiException>(
+                () => swarmClient.TryGetFileHeadersAsync(new SwarmAddress(reference, path)));
+            
+            // Assert.
+            Assert.Equal((int)statusCode, thrown.StatusCode);
+        }
+        
+        [Fact]
+        public async Task TryGetFileSizeAnswersNullOnNotFound()
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.NotFound);
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var size = await swarmClient.TryGetFileSizeAsync(new SwarmAddress(reference, "index.html"));
+            
+            // Assert.
+            Assert.Null(size);
+        }
+        
+        [Fact]
+        public async Task TryGetFileSizeAnswersNullWhenTheNodeDeclaresNoLength()
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.OK, "0123456789", declaresContentLength: false);
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var size = await swarmClient.TryGetFileSizeAsync(new SwarmAddress(reference, "index.html"));
+            
+            // Assert.
+            Assert.Null(size);
+        }
+        
+        [Fact]
+        public async Task TryGetFileSizeAnswersTheLengthTheNodeDeclares()
+        {
+            // Setup.
+            SwarmReference reference = "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9";
+            var handler = new StatusAnsweringHttpMessageHandler(HttpStatusCode.OK, "0123456789");
+            using var swarmClient = new SwarmClient(nodeUrl, SwarmClients.Bee, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            var size = await swarmClient.TryGetFileSizeAsync(new SwarmAddress(reference, "index.html"));
+            
+            // Assert.
+            Assert.Equal(10, size);
         }
         
         [Fact]

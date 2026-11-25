@@ -22,11 +22,14 @@ using System.Threading.Tasks;
 namespace Etherna.SwarmSdk
 {
     /// <summary>
-    /// An HTTP handler answering every request with one status code and body, recording the requests
+    /// An HTTP handler answering every request with one status code, body and set of headers, recording the
+    /// requests
     /// </summary>
     public sealed class StatusAnsweringHttpMessageHandler(
         HttpStatusCode statusCode,
-        string content = "")
+        string content = "",
+        IReadOnlyDictionary<string, string>? responseHeaders = null,
+        bool declaresContentLength = true)
         : HttpMessageHandler
     {
         // Properties.
@@ -38,11 +41,21 @@ namespace Etherna.SwarmSdk
             CancellationToken cancellationToken)
         {
             Requests.Add(request);
-            return Task.FromResult(new HttpResponseMessage(statusCode)
+            var response = new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(content, Encoding.UTF8, "application/json"),
                 RequestMessage = request
-            });
+            };
+            
+            //a header describing the content is refused among the ones of the response
+            foreach (var (name, value) in responseHeaders ?? new Dictionary<string, string>())
+                if (!response.Headers.TryAddWithoutValidation(name, value))
+                    response.Content.Headers.TryAddWithoutValidation(name, value);
+
+            //a content lists its length among its headers only when it is declared, as a node does
+            if (declaresContentLength)
+                response.Content.Headers.ContentLength = Encoding.UTF8.GetByteCount(content);
+            return Task.FromResult(response);
         }
     }
 }

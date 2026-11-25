@@ -116,7 +116,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SwaggerResponse> BytesHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -209,7 +209,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SwaggerResponse> BzzHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -238,7 +238,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Chunk exists</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, string path, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SwaggerResponse> BzzHeadAsync(string address, string path, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <summary>
@@ -1693,7 +1693,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content?.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -1745,7 +1745,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SwaggerResponse> BytesHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -1813,12 +1813,12 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 206)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 304)
@@ -2361,7 +2361,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content?.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -2433,7 +2433,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_act_history_address">ACT history reference address</param>
         /// <returns>Headers for the content at the reference.</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SwaggerResponse> BzzHeadAsync(string address, bool? swarm_cache = null, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, string? swarm_chunk_retrieval_timeout = null, long? swarm_act_timestamp = null, string? swarm_act_publisher = null, string? swarm_act_history_address = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -2502,12 +2502,12 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 206)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 304)
@@ -2660,7 +2660,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content?.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -2725,7 +2725,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
         /// <param name="swarm_redundancy_level">Add redundancy to the data being uploaded so that downloaders can download it with better UX. 0 value is default and does not add any redundancy to the file.</param>
         /// <returns>Chunk exists</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, string path, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SwaggerResponse> BzzHeadAsync(string address, string path, SwarmRedundancyStrategy? swarm_redundancy_strategy = null, bool? swarm_redundancy_fallback_mode = null, SwarmRedundancyLevel? swarm_redundancy_level = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -2783,7 +2783,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 400)
@@ -4408,7 +4408,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content?.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -4711,7 +4711,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content?.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -5899,7 +5899,7 @@ namespace Etherna.SwarmSdk.Clients.Bee
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content?.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -13455,8 +13455,6 @@ namespace Etherna.SwarmSdk.Clients.Bee
         private System.IDisposable? _response;
 
         public int StatusCode { get; private set; }
-        
-        public System.Net.Http.Headers.HttpContentHeaders? ContentHeaders { get; private set; }
 
         public System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
 
@@ -13467,10 +13465,9 @@ namespace Etherna.SwarmSdk.Clients.Bee
             get { return StatusCode == 206; }
         }
 
-        public FileResponse(int statusCode, System.Net.Http.Headers.HttpContentHeaders? contentHeaders, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable? client, System.IDisposable? response)
+        public FileResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable? client, System.IDisposable? response)
         {
             StatusCode = statusCode;
-            ContentHeaders = contentHeaders;
             Headers = headers;
             Stream = stream;
             _client = client;
@@ -13484,6 +13481,32 @@ namespace Etherna.SwarmSdk.Clients.Bee
                 _response.Dispose();
             if (_client != null)
                 _client.Dispose();
+        }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SwaggerResponse
+    {
+        public int StatusCode { get; private set; }
+
+        public System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
+
+        public SwaggerResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers)
+        {
+            StatusCode = statusCode;
+            Headers = headers;
+        }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SwaggerResponse<TResult> : SwaggerResponse
+    {
+        public TResult Result { get; private set; }
+
+        public SwaggerResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, TResult result)
+            : base(statusCode, headers)
+        {
+            Result = result;
         }
     }
 

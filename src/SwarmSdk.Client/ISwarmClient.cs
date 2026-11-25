@@ -19,7 +19,6 @@ using Etherna.SwarmSdk.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.Http.Headers;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -264,7 +263,7 @@ namespace Etherna.SwarmSdk
             string? actHistoryAddress = null,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Request the headers containing the content type and length for the reference.</summary>
+        /// <summary>Request the headers of the content of a reference, with its type and its length.</summary>
         /// <param name="reference">Swarm content reference.</param>
         /// <param name="actTimestamp">ACT history Unix timestamp.</param>
         /// <param name="actPublisher">ACT content publisher's public key.</param>
@@ -274,9 +273,9 @@ namespace Etherna.SwarmSdk
         /// <param name="redundancyStrategy">Specify the retrieve strategy on redundant data.</param>
         /// <param name="redundancyFallbackMode">Specify if the retrieve strategies (chunk prefetching on redundant data) are used in a fallback cascade. The default is true.</param>
         /// <param name="chunkRetrievalTimeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
-        /// <returns>Content headers</returns>
+        /// <returns>The headers the node answers about the content</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<HttpContentHeaders?> GetBytesHeadersAsync(
+        Task<SwarmResponseHeaders> GetBytesHeadersAsync(
             SwarmReference reference,
             long? actTimestamp = null,
             string? actPublisher = null,
@@ -894,9 +893,9 @@ namespace Etherna.SwarmSdk
         /// <param name="redundancyStrategyFallback">Specify if the retrieve strategies are used in a fallback cascade.</param>
         /// <param name="cache">Determines if the download data should be cached on the node. By default the download will be cached.</param>
         /// <param name="chunkRetrievalTimeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
-        /// <returns>Headers with values</returns>
+        /// <returns>The headers the node answers about the file, or null if the node doesn't find it: a bee node declares among them the reference the address resolves to, unless it resolves through a feed</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        Task<HttpContentHeaders?> TryGetFileHeadersAsync(
+        Task<SwarmResponseHeaders?> TryGetFileHeadersAsync(
             SwarmAddress address,
             long? actTimestamp = null,
             string? actPublisher = null,
@@ -918,7 +917,7 @@ namespace Etherna.SwarmSdk
         /// <param name="redundancyStrategyFallback">Specify if the retrieve strategies are used in a fallback cascade.</param>
         /// <param name="cache">Determines if the download data should be cached on the node. By default the download will be cached.</param>
         /// <param name="chunkRetrievalTimeout">Specify the timeout for chunk retrieval. The default is 30 seconds.</param>
-        /// <returns>Byte size of file</returns>
+        /// <returns>The byte length the node declares for the file, or null if it doesn't find the file or declares no length</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
         Task<long?> TryGetFileSizeAsync(
             SwarmAddress address,
