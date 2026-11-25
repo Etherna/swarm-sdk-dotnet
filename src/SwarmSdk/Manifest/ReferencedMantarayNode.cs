@@ -35,6 +35,7 @@ namespace Etherna.SwarmSdk.Manifest
         private readonly IReadOnlyDictionary<string, string> _metadata;
         private EncryptionKey256? _obfuscationKey;
         private readonly IReadOnlyChunkStore chunkStore;
+        private readonly RedundancyLevel redundancyLevel;
         private readonly RedundancyStrategy redundancyStrategy;
         private readonly bool redundancyStrategyFallback;
 
@@ -43,6 +44,7 @@ namespace Etherna.SwarmSdk.Manifest
             SwarmCac chunk,
             SwarmReference reference,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel,
             RedundancyStrategy redundancyStrategy,
             bool redundancyStrategyFallback,
             IReadOnlyDictionary<string, string>? metadata,
@@ -56,6 +58,7 @@ namespace Etherna.SwarmSdk.Manifest
                     $"Chunk's hash {chunk.Hash} does not match reference {reference}");
 
             this.chunkStore = chunkStore;
+            this.redundancyLevel = redundancyLevel;
             this.redundancyStrategy = redundancyStrategy;
             this.redundancyStrategyFallback = redundancyStrategyFallback;
             _metadata = metadata ?? new Dictionary<string, string>();
@@ -67,12 +70,14 @@ namespace Etherna.SwarmSdk.Manifest
         public ReferencedMantarayNode(
             SwarmReference reference,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel,
             RedundancyStrategy redundancyStrategy,
             bool redundancyStrategyFallback,
             IReadOnlyDictionary<string, string>? metadata,
             NodeType nodeTypeFlags)
         {
             this.chunkStore = chunkStore;
+            this.redundancyLevel = redundancyLevel;
             this.redundancyStrategy = redundancyStrategy;
             this.redundancyStrategyFallback = redundancyStrategyFallback;
             _metadata = metadata ?? new Dictionary<string, string>();
@@ -130,9 +135,11 @@ namespace Etherna.SwarmSdk.Manifest
             IsDecoded = true;
         }
         
-        public async Task FetchChunkAsync(
-            RedundancyLevel redundancyLevel,
-            CancellationToken cancellationToken = default)
+        /// <summary>
+        /// Fetch the chunk of the node, looking up its replicas at the redundancy level of the node
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        public async Task FetchChunkAsync(CancellationToken cancellationToken = default)
         {
             // Use chunk replica resolver if required.
             var rootChunkStore = redundancyLevel == RedundancyLevel.None ?
@@ -152,7 +159,7 @@ namespace Etherna.SwarmSdk.Manifest
         public override async Task OnVisitingAsync(CancellationToken cancellationToken = default)
         {
             if (Chunk is null)
-                await FetchChunkAsync(RedundancyLevel.Paranoid, cancellationToken).ConfigureAwait(false);
+                await FetchChunkAsync(cancellationToken).ConfigureAwait(false);
             
             if (!IsDecoded)
                 DecodeFromChunk();
@@ -224,6 +231,7 @@ namespace Etherna.SwarmSdk.Manifest
                 var forkNode = new ReferencedMantarayNode(
                     childNodeReference,
                     chunkStore,
+                    redundancyLevel,
                     redundancyStrategy,
                     redundancyStrategyFallback,
                     childNodeMetadata,

@@ -12,14 +12,18 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Chunks;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
+using Etherna.SwarmSdk.Hashing.Signer;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using Moq;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -34,6 +38,22 @@ namespace Etherna.SwarmSdk.Manifest
             IReadOnlyDictionary<string, ManifestEntry> Entries);
 
         // Data.
+        public static TheoryData<Func<SwarmReference, IReadOnlyChunkStore, Task>> ResolutionsAtLevelNone => new()
+        {
+            (rootReference, chunkStore) => SwarmAddressResolver.ResolveReferenceAsync(
+                new SwarmAddress(rootReference, "index.html"),
+                chunkStore,
+                RedundancyLevel.None),
+            (rootReference, chunkStore) => SwarmAddressResolver.ResolveReferenceAsync(
+                $"{rootReference}/index.html",
+                chunkStore,
+                RedundancyLevel.None),
+            (rootReference, chunkStore) => SwarmAddressResolver.TryGetFileNameAsync(
+                new SwarmAddress(rootReference, "index.html"),
+                chunkStore,
+                RedundancyLevel.None)
+        };
+
         private static readonly (string Path, string ContentType, string? Filename, int SizeKb)[] TestFiles =
         [
             ("assets/app.js", "application/javascript", "app.js", 8),
@@ -42,6 +62,37 @@ namespace Etherna.SwarmSdk.Manifest
         ];
 
         // Tests.
+        [Theory]
+        [MemberData(nameof(ResolutionsAtLevelNone))]
+        public async Task ResolutionAtLevelNone_AsksForAMissingForkNodeOnce_AndForNoReplica(
+            Func<SwarmReference, IReadOnlyChunkStore, Task> resolution)
+        {
+            // Setup.
+            var manifestData = await BuildTestManifestAsync();
+            var forkNodeHash = await GetIndexForkNodeHashAsync(manifestData);
+
+            //a store without the fork node, recording what it is asked for
+            var requestedHashes = new ConcurrentQueue<SwarmHash>();
+            var chunkStoreMock = new Mock<IReadOnlyChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.GetAsync(It.IsAny<SwarmHash>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>((hash, cancellationToken) =>
+                {
+                    requestedHashes.Enqueue(hash);
+                    return hash == forkNodeHash ?
+                        Task.FromException<SwarmChunk>(new KeyNotFoundException()) :
+                        manifestData.ChunkStore.GetAsync(hash, cancellationToken);
+                });
+            SwarmHash[] expectedHashes = [manifestData.RootReference.Hash, forkNodeHash];
+
+            // Run.
+            await Assert.ThrowsAsync<KeyNotFoundException>(
+                () => resolution(manifestData.RootReference, chunkStoreMock.Object));
+
+            // Assert.
+            Assert.Equal(expectedHashes, requestedHashes);
+        }
+
         [Fact]
         public async Task ResolveReferenceAsync_FromAddress_ResolvesThroughManifest()
         {
@@ -88,6 +139,33 @@ namespace Etherna.SwarmSdk.Manifest
 
             // Assert.
             Assert.Equal(new SwarmReference(SwarmHash.FromString(hashString), null), reference);
+        }
+
+        [Fact]
+        public async Task ResolveReferenceAsync_WithARedundancyLevel_ResolvesAForkNodeFromItsReplicas()
+        {
+            // Setup.
+            var manifestData = await BuildTestManifestAsync();
+            var forkNodeHash = await GetIndexForkNodeHashAsync(manifestData);
+
+            //leave only the replicas of the fork node in the store
+            var forkNodeChunk = (SwarmCac)await manifestData.ChunkStore.GetAsync(forkNodeHash);
+            var replicator = new ChunkReplicator(
+                RedundancyLevel.Medium,
+                manifestData.ChunkStore,
+                new FakePostageStamper(),
+                new PrivateKeySigner(SwarmSoc.ReplicasOwnerPrivateKey));
+            await replicator.AddChunkReplicasAsync(forkNodeChunk, new Hasher());
+            await manifestData.ChunkStore.RemoveAsync(forkNodeHash);
+
+            // Run.
+            var reference = await SwarmAddressResolver.ResolveReferenceAsync(
+                new SwarmAddress(manifestData.RootReference, "index.html"),
+                manifestData.ChunkStore,
+                RedundancyLevel.Medium);
+
+            // Assert.
+            Assert.Equal(manifestData.Entries["index.html"].Reference, reference);
         }
 
         [Fact]
@@ -193,6 +271,23 @@ namespace Etherna.SwarmSdk.Manifest
             var rootReference = await manifest.GetReferenceAsync(new Hasher());
 
             return new TestManifestData(chunkStore, rootReference, entries);
+        }
+
+        /// <summary>
+        /// The hash of the node the root of the test manifest forks to for "index.html"
+        /// </summary>
+        private static async Task<SwarmHash> GetIndexForkNodeHashAsync(TestManifestData manifestData)
+        {
+            var rootNode = new ReferencedMantarayNode(
+                manifestData.RootReference,
+                manifestData.ChunkStore,
+                RedundancyLevel.None,
+                RedundancyStrategy.Data,
+                true,
+                null,
+                NodeType.Edge);
+            await rootNode.OnVisitingAsync();
+            return rootNode.Forks['i'].Node.Reference.Hash;
         }
     }
 }

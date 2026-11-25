@@ -27,12 +27,14 @@ namespace Etherna.SwarmSdk.Manifest
         public static ReferencedMantarayManifest BuildNew(
             SwarmReference rootReference,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             RedundancyStrategy redundancyStrategy = RedundancyStrategy.Data,
             bool redundancyStrategyFallback = true)
         {
             var node = new ReferencedMantarayNode(
                 rootReference,
                 chunkStore,
+                redundancyLevel,
                 redundancyStrategy,
                 redundancyStrategyFallback,
                 null,
@@ -44,6 +46,7 @@ namespace Etherna.SwarmSdk.Manifest
             SwarmCac rootChunk,
             SwarmReference rootChunkReference,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             RedundancyStrategy redundancyStrategy = RedundancyStrategy.Data,
             bool redundancyStrategyFallback = true)
         {
@@ -51,6 +54,7 @@ namespace Etherna.SwarmSdk.Manifest
                 rootChunk,
                 rootChunkReference,
                 chunkStore,
+                redundancyLevel,
                 redundancyStrategy,
                 redundancyStrategyFallback,
                 null,
@@ -63,7 +67,7 @@ namespace Etherna.SwarmSdk.Manifest
         /// </summary>
         /// <param name="rootReference">The manifest root reference</param>
         /// <param name="chunkStore">The chunk store</param>
-        /// <param name="redundancyLevel">Redundancy level used to retrieve root replicas</param>
+        /// <param name="redundancyLevel">Redundancy level used to retrieve the replicas of every node of the manifest</param>
         /// <param name="redundancyStrategy">Base strategy used to retrieve parity chunks</param>
         /// <param name="redundancyStrategyFallback">Fallback to more aggressive redundancy strategy if required</param>
         /// <param name="cancellationToken">The cancellation token</param>
@@ -79,11 +83,12 @@ namespace Etherna.SwarmSdk.Manifest
             var node = new ReferencedMantarayNode(
                 rootReference,
                 chunkStore,
+                redundancyLevel,
                 redundancyStrategy,
                 redundancyStrategyFallback,
                 null,
                 NodeType.Edge);
-            await node.FetchChunkAsync(redundancyLevel, cancellationToken).ConfigureAwait(false);
+            await node.FetchChunkAsync(cancellationToken).ConfigureAwait(false);
             node.DecodeFromChunk();
             return new ReferencedMantarayManifest(node);
         }

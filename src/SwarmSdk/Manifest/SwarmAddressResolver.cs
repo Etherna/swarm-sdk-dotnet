@@ -31,16 +31,19 @@ namespace Etherna.SwarmSdk.Manifest
         /// </summary>
         /// <param name="address">The resource address</param>
         /// <param name="chunkStore">The chunk store</param>
+        /// <param name="redundancyLevel">Redundancy level used to retrieve the replicas of every node of the manifest</param>
         /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The resolved reference</returns>
         public static async Task<SwarmReference> ResolveReferenceAsync(
             SwarmAddress address,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             CancellationToken cancellationToken = default) =>
             (await ResolveResourceInfoAsync(
                 address,
                 chunkStore,
                 ManifestPathResolver.IdentityResolver,
+                redundancyLevel,
                 cancellationToken: cancellationToken).ConfigureAwait(false)).Result.Reference;
 
         /// <summary>
@@ -48,11 +51,13 @@ namespace Etherna.SwarmSdk.Manifest
         /// </summary>
         /// <param name="referenceOrAddress">A hash, or an address (root reference + path)</param>
         /// <param name="chunkStore">The chunk store</param>
+        /// <param name="redundancyLevel">Redundancy level used to retrieve the replicas of every node of the manifest</param>
         /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The resolved reference</returns>
         public static async Task<SwarmReference> ResolveReferenceAsync(
             string referenceOrAddress,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             CancellationToken cancellationToken = default)
         {
             if (SwarmHash.IsValidHash(referenceOrAddress))
@@ -60,6 +65,7 @@ namespace Etherna.SwarmSdk.Manifest
             return await ResolveReferenceAsync(
                 SwarmAddress.FromString(referenceOrAddress),
                 chunkStore,
+                redundancyLevel,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -69,7 +75,7 @@ namespace Etherna.SwarmSdk.Manifest
         /// <param name="address">The resource address</param>
         /// <param name="chunkStore">The chunk store</param>
         /// <param name="manifestPathResolver">The manifest path resolver</param>
-        /// <param name="redundancyLevel">Redundancy level used to retrieve root replicas</param>
+        /// <param name="redundancyLevel">Redundancy level used to retrieve the replicas of every node of the manifest</param>
         /// <param name="redundancyStrategy">Base strategy used to retrieve parity chunks</param>
         /// <param name="redundancyStrategyFallback">Fallback to more aggressive redundancy strategy if required</param>
         /// <param name="cancellationToken">The cancellation token</param>
@@ -100,17 +106,20 @@ namespace Etherna.SwarmSdk.Manifest
         /// </summary>
         /// <param name="address">The resource address</param>
         /// <param name="chunkStore">The chunk store</param>
+        /// <param name="redundancyLevel">Redundancy level used to retrieve the replicas of every node of the manifest</param>
         /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>The file name, or null if not present</returns>
         public static async Task<string?> TryGetFileNameAsync(
             SwarmAddress address,
             IReadOnlyChunkStore chunkStore,
+            RedundancyLevel redundancyLevel = RedundancyLevel.Paranoid,
             CancellationToken cancellationToken = default)
         {
             var info = await ResolveResourceInfoAsync(
                 address,
                 chunkStore,
                 ManifestPathResolver.IdentityResolver,
+                redundancyLevel,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             return info.Result.Metadata.GetValueOrDefault(ManifestEntry.FilenameKey);
         }
