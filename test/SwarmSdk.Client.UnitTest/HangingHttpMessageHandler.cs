@@ -30,10 +30,25 @@ namespace Etherna.SwarmSdk
         private readonly TaskCompletionSource requestReceived = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         // Properties.
-        public Task RequestReceived => requestReceived.Task;
         public List<HttpRequestMessage> Requests { get; } = [];
 
         // Methods.
+        /// <summary>
+        /// Wait for the node to receive the request of an operation. An operation that ends without sending one
+        /// fails the wait with its own exception, or with InvalidOperationException when it ended with no error, and
+        /// a request that doesn't arrive within 10 seconds of real time fails it with TimeoutException: a test never
+        /// waits for a request nothing sends.
+        /// </summary>
+        public async Task WaitRequestOfAsync(Task operation)
+        {
+            await Task.WhenAny(requestReceived.Task, operation).WaitAsync(TimeSpan.FromSeconds(10));
+            if (requestReceived.Task.IsCompleted)
+                return;
+
+            await operation;
+            throw new InvalidOperationException("The operation ended without sending a request");
+        }
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)

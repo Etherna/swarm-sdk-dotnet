@@ -308,7 +308,7 @@ namespace Etherna.SwarmSdk
             
             // Run.
             var task = swarmClient.GetHealthAsync(cancellationTokenSource.Token);
-            await handler.RequestReceived;
+            await handler.WaitRequestOfAsync(task);
             await cancellationTokenSource.CancelAsync();
             
             // Assert.
@@ -330,7 +330,7 @@ namespace Etherna.SwarmSdk
             
             // Run.
             var task = swarmClient.GetHealthAsync();
-            await handler.RequestReceived;
+            await handler.WaitRequestOfAsync(task);
             timeProvider.Advance(TimeSpan.FromSeconds(1));
             var thrown = await Assert.ThrowsAsync<SwarmClientTimeoutException>(() => task);
             
@@ -352,7 +352,7 @@ namespace Etherna.SwarmSdk
             
             // Run.
             var task = swarmClient.GetHealthAsync();
-            await handler.RequestReceived;
+            await handler.WaitRequestOfAsync(task);
             timeProvider.Advance(TimeSpan.FromSeconds(5) - TimeSpan.FromMilliseconds(1));
             var isCompletedBeforeTheBound = task.IsCompleted;
             timeProvider.Advance(TimeSpan.FromMilliseconds(1));
@@ -503,7 +503,7 @@ namespace Etherna.SwarmSdk
             
             // Run.
             var task = operation(swarmClient);
-            await handler.RequestReceived;
+            await handler.WaitRequestOfAsync(task);
             timeProvider.Advance(bound - TimeSpan.FromMilliseconds(1));
             var isCompletedBeforeTheBound = task.IsCompleted;
             timeProvider.Advance(TimeSpan.FromMilliseconds(1));
