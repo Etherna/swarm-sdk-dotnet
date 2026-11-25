@@ -16,8 +16,11 @@ namespace Etherna.SwarmSdk.Models
 {
     public static class SwarmHttpConsts
     {
+        public const string ContentDispositionHeader = "Content-Disposition";
+        public const string ContentLengthHeader = "Content-Length";
         public const string ContentTypeHeader = "Content-Type";
         public const string DefaultIndexFilename = "index.html";
+        public const string ETagHeader = "ETag";
         public const string GasLimitHeader  = "Gas-Limit";
         public const string GasPriceHeader  = "Gas-Price";
         public const string ImmutableHeader = "Immutable";

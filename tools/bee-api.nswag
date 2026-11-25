@@ -57,8 +57,11 @@
       "parameterDictionaryType": "System.Collections.Generic.IDictionary",
       "responseArrayType": "System.Collections.Generic.ICollection",
       "responseDictionaryType": "System.Collections.Generic.IDictionary",
-      "wrapResponses": false,
-      "wrapResponseMethods": [],
+      "wrapResponses": true,
+      "wrapResponseMethods": [
+        "BeeGeneratedClient.BytesHead",
+        "BeeGeneratedClient.BzzHead"
+      ],
       "generateResponseClasses": true,
       "responseClass": "SwaggerResponse",
       "namespace": "Etherna.SwarmSdk.Clients.Bee",

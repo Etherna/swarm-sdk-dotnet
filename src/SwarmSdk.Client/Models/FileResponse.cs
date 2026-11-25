@@ -13,16 +13,16 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Models
 {
+    /// <summary>
+    /// A content a node answers: its headers, the same a HEAD of it answers, and the stream of its data
+    /// </summary>
     public sealed class FileResponse(
-        HttpContentHeaders? contentHeaders,
-        IReadOnlyDictionary<string, IEnumerable<string>> headers,
+        SwarmResponseHeaders headers,
         Stream stream)
         : IDisposable, IAsyncDisposable
     {
@@ -31,9 +31,7 @@ namespace Etherna.SwarmSdk.Models
         public ValueTask DisposeAsync() => Stream.DisposeAsync();
 
         // Properties.
-        public bool IsFeed => Headers.ContainsKey("Swarm-Feed-Index");
-        public HttpContentHeaders? ContentHeaders { get; } = contentHeaders;
-        public IReadOnlyDictionary<string, IEnumerable<string>> Headers { get; } = headers;
+        public SwarmResponseHeaders Headers { get; } = headers;
         public Stream Stream { get; } = stream;
     }
 }

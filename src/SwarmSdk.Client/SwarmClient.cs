@@ -953,7 +953,7 @@ namespace Etherna.SwarmSdk
             }
         }
 
-        public Task<HttpContentHeaders?> GetBytesHeadersAsync(
+        public async Task<SwarmResponseHeaders> GetBytesHeadersAsync(
             SwarmReference reference,
             long? actTimestamp = null,
             string? actPublisher = null,
@@ -968,7 +968,8 @@ namespace Etherna.SwarmSdk
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
-                    return RunBoundedAsync(
+                {
+                    var response = await RunBoundedAsync(
                         Timeouts.ChunkRetrieval,
                         ct => beeGeneratedClient.BytesHeadAsync(
                             address: reference.ToString(),
@@ -981,14 +982,19 @@ namespace Etherna.SwarmSdk
                             swarm_act_publisher: actPublisher,
                             swarm_act_history_address: actHistoryAddress,
                             cancellationToken: ct),
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
+                    return new SwarmResponseHeaders(response.Headers);
+                }
                 case SwarmClients.Beehive:
-                    return RunBoundedAsync(
+                {
+                    var response = await RunBoundedAsync(
                         Timeouts.ChunkRetrieval,
                         ct => beehiveGeneratedClient.BytesHeadAsync(
                             reference: reference.ToString(),
                             cancellationToken: ct),
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
+                    return new SwarmResponseHeaders(response.Headers);
+                }
                 default:
                     throw new InvalidOperationException();
             }
@@ -1316,8 +1322,7 @@ namespace Etherna.SwarmSdk
                                 cancellationToken: ct),
                             cancellationToken).ConfigureAwait(false);
                         return new FileResponse(
-                            response.ContentHeaders,
-                            response.Headers,
+                            new SwarmResponseHeaders(response.Headers),
                             response.Stream);
                     }
                     else
@@ -1336,8 +1341,7 @@ namespace Etherna.SwarmSdk
                                 cancellationToken: ct),
                             cancellationToken).ConfigureAwait(false);
                         return new FileResponse(
-                            response.ContentHeaders,
-                            response.Headers,
+                            new SwarmResponseHeaders(response.Headers),
                             response.Stream);
                     }
                 }
@@ -1353,8 +1357,7 @@ namespace Etherna.SwarmSdk
                             cancellationToken: ct),
                         cancellationToken).ConfigureAwait(false);
                     return new FileResponse(
-                        response.ContentHeaders,
-                        response.Headers,
+                        new SwarmResponseHeaders(response.Headers),
                         response.Stream);
                 }
                 default:
@@ -2039,8 +2042,7 @@ namespace Etherna.SwarmSdk
                             cancellationToken: ct),
                         cancellationToken).ConfigureAwait(false);
                     return new FileResponse(
-                        response.ContentHeaders,
-                        response.Headers,
+                        new SwarmResponseHeaders(response.Headers),
                         response.Stream);
                 }
                 case SwarmClients.Beehive:
@@ -2056,8 +2058,7 @@ namespace Etherna.SwarmSdk
                             cancellationToken: ct),
                         cancellationToken).ConfigureAwait(false);
                     return new FileResponse(
-                        response.ContentHeaders,
-                        response.Headers,
+                        new SwarmResponseHeaders(response.Headers),
                         response.Stream);
                 }
                 default:
@@ -3081,8 +3082,7 @@ namespace Etherna.SwarmSdk
                                 cancellationToken: ct),
                             cancellationToken).ConfigureAwait(false);
                         return new FileResponse(
-                            response.ContentHeaders,
-                            response.Headers,
+                            new SwarmResponseHeaders(response.Headers),
                             response.Stream);
                     }
                     catch (SwarmSdkApiException e) when (e.StatusCode == 404)
@@ -3107,8 +3107,7 @@ namespace Etherna.SwarmSdk
                                 cancellationToken: ct),
                             cancellationToken).ConfigureAwait(false);
                         return new FileResponse(
-                            response.ContentHeaders,
-                            response.Headers,
+                            new SwarmResponseHeaders(response.Headers),
                             response.Stream);
                     }
                     catch (SwarmSdkApiException e) when (e.StatusCode == 404)
@@ -3120,7 +3119,7 @@ namespace Etherna.SwarmSdk
             }
         }
 
-        public async Task<HttpContentHeaders?> TryGetFileHeadersAsync(
+        public async Task<SwarmResponseHeaders?> TryGetFileHeadersAsync(
             SwarmAddress address,
             long? actTimestamp = null,
             string? actPublisher = null,
@@ -3135,42 +3134,58 @@ namespace Etherna.SwarmSdk
             switch (ApiCompatibility)
             {
                 case SwarmClients.Bee:
-                    return address.HasPath ?
-                        await RunBoundedAsync(
-                            Timeouts.ChunkRetrieval,
-                            ct => beeGeneratedClient.BzzHeadAsync(
-                                address: address.Reference.ToString(),
-                                path: address.Path,
-                                swarm_redundancy_level: (SwarmRedundancyLevel?)redundancyLevel,
-                                swarm_redundancy_strategy: (SwarmRedundancyStrategy?)redundancyStrategy,
-                                swarm_redundancy_fallback_mode: redundancyStrategyFallback,
-                                cancellationToken: ct),
-                            cancellationToken).ConfigureAwait(false) :
+                    try
+                    {
+                        var response = address.HasPath ?
+                            await RunBoundedAsync(
+                                Timeouts.ChunkRetrieval,
+                                ct => beeGeneratedClient.BzzHeadAsync(
+                                    address: address.Reference.ToString(),
+                                    path: address.Path,
+                                    swarm_redundancy_level: (SwarmRedundancyLevel?)redundancyLevel,
+                                    swarm_redundancy_strategy: (SwarmRedundancyStrategy?)redundancyStrategy,
+                                    swarm_redundancy_fallback_mode: redundancyStrategyFallback,
+                                    cancellationToken: ct),
+                                cancellationToken).ConfigureAwait(false) :
                 
-                        await RunBoundedAsync(
+                            await RunBoundedAsync(
+                                Timeouts.ChunkRetrieval,
+                                ct => beeGeneratedClient.BzzHeadAsync(
+                                    address: address.Reference.ToString(),
+                                    swarm_cache: cache,
+                                    swarm_act_timestamp: actTimestamp,
+                                    swarm_act_publisher: actPublisher,
+                                    swarm_act_history_address: actHistoryAddress,
+                                    swarm_redundancy_level: (SwarmRedundancyLevel?)redundancyLevel,
+                                    swarm_redundancy_strategy: (SwarmRedundancyStrategy?)redundancyStrategy,
+                                    swarm_redundancy_fallback_mode: redundancyStrategyFallback,
+                                    swarm_chunk_retrieval_timeout: chunkRetrievalTimeout,
+                                    cancellationToken: ct),
+                                cancellationToken).ConfigureAwait(false);
+                        return new SwarmResponseHeaders(response.Headers);
+                    }
+                    catch (SwarmSdkApiException e) when (e.StatusCode == 404)
+                    {
+                        return null;
+                    }
+                case SwarmClients.Beehive:
+                    try
+                    {
+                        var response = await RunBoundedAsync(
                             Timeouts.ChunkRetrieval,
-                            ct => beeGeneratedClient.BzzHeadAsync(
-                                address: address.Reference.ToString(),
-                                swarm_cache: cache,
-                                swarm_act_timestamp: actTimestamp,
-                                swarm_act_publisher: actPublisher,
-                                swarm_act_history_address: actHistoryAddress,
-                                swarm_redundancy_level: (SwarmRedundancyLevel?)redundancyLevel,
-                                swarm_redundancy_strategy: (SwarmRedundancyStrategy?)redundancyStrategy,
-                                swarm_redundancy_fallback_mode: redundancyStrategyFallback,
-                                swarm_chunk_retrieval_timeout: chunkRetrievalTimeout,
+                            ct => beehiveGeneratedClient.BzzHeadAsync(
+                                address.ToString(),
+                                swarm_Redundancy_Level: (Clients.Beehive.RedundancyLevel?)redundancyLevel,
+                                swarm_Redundancy_Strategy: (Clients.Beehive.RedundancyStrategy?)redundancyStrategy,
+                                swarm_Redundancy_Fallback_Mode: redundancyStrategyFallback,
                                 cancellationToken: ct),
                             cancellationToken).ConfigureAwait(false);
-                case SwarmClients.Beehive:
-                    return await RunBoundedAsync(
-                        Timeouts.ChunkRetrieval,
-                        ct => beehiveGeneratedClient.BzzHeadAsync(
-                            address.ToString(),
-                            swarm_Redundancy_Level: (Clients.Beehive.RedundancyLevel?)redundancyLevel,
-                            swarm_Redundancy_Strategy: (Clients.Beehive.RedundancyStrategy?)redundancyStrategy,
-                            swarm_Redundancy_Fallback_Mode: redundancyStrategyFallback,
-                            cancellationToken: ct),
-                        cancellationToken).ConfigureAwait(false);
+                        return new SwarmResponseHeaders(response.Headers);
+                    }
+                    catch (SwarmSdkApiException e) when (e.StatusCode == 404)
+                    {
+                        return null;
+                    }
                 default:
                     throw new InvalidOperationException();
             }

@@ -45,7 +45,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SwaggerResponse> BytesHeadAsync(string reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>Created</returns>
@@ -60,7 +60,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, RedundancyLevel? swarm_Redundancy_Level = null, RedundancyStrategy? swarm_Redundancy_Strategy = null, bool? swarm_Redundancy_Fallback_Mode = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SwaggerResponse> BzzHeadAsync(string address, RedundancyLevel? swarm_Redundancy_Level = null, RedundancyStrategy? swarm_Redundancy_Strategy = null, bool? swarm_Redundancy_Fallback_Mode = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
 
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>Created</returns>
@@ -380,7 +380,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -388,7 +388,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -445,7 +445,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BytesHeadAsync(string reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SwaggerResponse> BytesHeadAsync(string reference, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (reference == null)
                 throw new System.ArgumentNullException("reference");
@@ -489,7 +489,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 400)
@@ -732,7 +732,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -740,7 +740,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -797,7 +797,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
         /// <returns>OK</returns>
         /// <exception cref="SwarmSdkApiException">A server side error occurred.</exception>
-        public virtual async System.Threading.Tasks.Task<System.Net.Http.Headers.HttpContentHeaders?> BzzHeadAsync(string address, RedundancyLevel? swarm_Redundancy_Level = null, RedundancyStrategy? swarm_Redundancy_Strategy = null, bool? swarm_Redundancy_Fallback_Mode = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public virtual async System.Threading.Tasks.Task<SwaggerResponse> BzzHeadAsync(string address, RedundancyLevel? swarm_Redundancy_Level = null, RedundancyStrategy? swarm_Redundancy_Strategy = null, bool? swarm_Redundancy_Fallback_Mode = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
         {
             if (address == null)
                 throw new System.ArgumentNullException("address");
@@ -850,7 +850,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         var status_ = (int)response_.StatusCode;
                         if (status_ == 200)
                         {
-                            return response_.Content?.Headers;
+                            return new SwaggerResponse(status_, headers_);
                         }
                         else
                         if (status_ == 400)
@@ -1170,7 +1170,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -1771,7 +1771,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -1779,7 +1779,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -2862,7 +2862,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 200 || status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -2870,7 +2870,7 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                         if (status_ == 206)
                         {
                             var responseStream_ = response_.Content == null ? System.IO.Stream.Null : await ReadAsStreamAsync(response_.Content, cancellationToken).ConfigureAwait(false);
-                            var fileResponse_ = new FileResponse(status_, response_.Content.Headers, headers_, responseStream_, null, response_);
+                            var fileResponse_ = new FileResponse(status_, headers_, responseStream_, null, response_);
                             disposeClient_ = false; disposeResponse_ = false; // response and client are disposed by FileResponse
                             return fileResponse_;
                         }
@@ -4673,8 +4673,6 @@ namespace Etherna.SwarmSdk.Clients.Beehive
         private System.IDisposable? _response;
 
         public int StatusCode { get; private set; }
-        
-        public System.Net.Http.Headers.HttpContentHeaders? ContentHeaders { get; private set; }
 
         public System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
 
@@ -4685,10 +4683,9 @@ namespace Etherna.SwarmSdk.Clients.Beehive
             get { return StatusCode == 206; }
         }
 
-        public FileResponse(int statusCode, System.Net.Http.Headers.HttpContentHeaders? contentHeaders, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable? client, System.IDisposable? response)
+        public FileResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, System.IO.Stream stream, System.IDisposable? client, System.IDisposable? response)
         {
             StatusCode = statusCode;
-            ContentHeaders = contentHeaders;
             Headers = headers;
             Stream = stream;
             _client = client;
@@ -4702,6 +4699,32 @@ namespace Etherna.SwarmSdk.Clients.Beehive
                 _response.Dispose();
             if (_client != null)
                 _client.Dispose();
+        }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SwaggerResponse
+    {
+        public int StatusCode { get; private set; }
+
+        public System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> Headers { get; private set; }
+
+        public SwaggerResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers)
+        {
+            StatusCode = statusCode;
+            Headers = headers;
+        }
+    }
+
+    [System.CodeDom.Compiler.GeneratedCode("NSwag", "14.7.1.0 (NJsonSchema v11.6.1.0 (Newtonsoft.Json v13.0.0.0))")]
+    public partial class SwaggerResponse<TResult> : SwaggerResponse
+    {
+        public TResult Result { get; private set; }
+
+        public SwaggerResponse(int statusCode, System.Collections.Generic.IReadOnlyDictionary<string, System.Collections.Generic.IEnumerable<string>> headers, TResult result)
+            : base(statusCode, headers)
+        {
+            Result = result;
         }
     }
 
