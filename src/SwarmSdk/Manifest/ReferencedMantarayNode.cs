@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Chunks;
 using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Extensions;
 using Etherna.SwarmSdk.Hashing;
@@ -29,6 +30,19 @@ namespace Etherna.SwarmSdk.Manifest
 {
     public sealed class ReferencedMantarayNode : MantarayNodeBase
     {
+        // Consts.
+        private const int HeaderSize = EncryptionKey256.KeySize + VersionHashSize;
+
+        /// <summary>
+        /// The size no node can exceed: its header, and a fork for each of the 256 keys with the longest reference
+        /// and the longest metadata the format can declare. A content declaring more is not read as a node
+        /// </summary>
+        private const int MaxNodeSize =
+            EncryptionKey256.KeySize + VersionHashSize + 1 + byte.MaxValue + ForksIndexSize +
+            ForksIndexSize * 8 * (
+                MantarayNodeFork.HeaderSize + MantarayNodeFork.PrefixMaxSize + byte.MaxValue +
+                MantarayNodeFork.MetadataBytesSize + ushort.MaxValue + EncryptionKey256.KeySize);
+
         // Fields.
         private SwarmReference? _entryReference;
         private readonly Dictionary<char, MantarayNodeFork> _forks = new();
@@ -102,35 +116,73 @@ namespace Etherna.SwarmSdk.Manifest
         public override SwarmReference Reference { get; }
 
         // Methods.
-        public void DecodeFromChunk()
+        /// <summary>
+        /// Decode the node from the content of its chunk tree: a node with enough forks spans more chunks than its
+        /// root, which are fetched with the redundancy strategy of the node
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <exception cref="InvalidOperationException">The content at the reference is not a manifest node</exception>
+        public async Task DecodeFromChunkAsync(CancellationToken cancellationToken = default)
         {
             if (Chunk == null)
                 throw new InvalidOperationException("Chunk not fetched");
             if (IsDecoded)
                 return;
             
-            // Get chunk data.
-            if (Chunk.Decode(Reference, new Hasher()) is not SwarmDecodedDataCac decodedChunk)
-                throw new InvalidOperationException("Intermediate chunk is not a manifest node");
-            var data = decodedChunk.Data.ToArray();
-            if (data.Length < EncryptionKey256.KeySize + VersionHashSize)
-                throw new InvalidOperationException("Chunk is too short to be a manifest node");
+            var hasher = new Hasher();
+            var decodedRoot = Chunk.Decode(Reference, hasher);
+            if (decodedRoot.SpanLength < HeaderSize)
+                throw new InvalidOperationException("Content is too short to be a manifest node");
+            if (decodedRoot.SpanLength > MaxNodeSize)
+                throw new InvalidOperationException("Content is larger than a manifest node can be");
 
-            // Get obfuscation key and de-obfuscate.
-            var readIndex = 0;
-            _obfuscationKey = new EncryptionKey256(data.AsMemory()[..EncryptionKey256.KeySize]);
-            _obfuscationKey.Value.XorEncryptDecrypt(data.AsSpan()[EncryptionKey256.KeySize..]);
-            readIndex += EncryptionKey256.KeySize;
-            
-            // Read header.
-            var versionHash = data.AsMemory()[readIndex..(readIndex + VersionHashSize)];
-            readIndex += VersionHashSize;
-            
-            // Decode version.
-            if (versionHash.Span.SequenceEqual(Version02Hash))
-                DecodeVersion02(data.AsMemory()[readIndex..]);
+            // Read the content of the node: of its only chunk, or joined from its chunk tree.
+            byte[] data;
+            if (decodedRoot is SwarmDecodedDataCac dataRoot)
+                data = dataRoot.Data.ToArray();
             else
-                throw new InvalidOperationException("Manifest version not recognized");
+            {
+                // A chunk tree can be a node, or a raw content the traverser is probing: its first bytes tell which,
+                // the obfuscation key and the version hash it obfuscates. They open the first data chunk of the tree:
+                // reach it through the first child of each intermediate chunk, one fetch for each level, and refuse a
+                // raw content there, without joining it.
+                var leftmostChunk = decodedRoot;
+                while (leftmostChunk is SwarmDecodedIntermediateCac intermediateChunk)
+                {
+                    var childReference = intermediateChunk.ChildReferences[0].Reference;
+                    if (await chunkStore.TryGetAsync(childReference.Hash, cancellationToken).ConfigureAwait(false)
+                        is not SwarmCac childChunk)
+                        break; //the store misses it: the join can recover it from the parities
+
+                    var decodedChild = childChunk.Decode(childReference, hasher);
+                    if (decodedChild.SpanLength != intermediateChunk.DataReferenceSpanLengths[0])
+                        break; //a malformed tree, that the join rejects
+                    leftmostChunk = decodedChild;
+                }
+                if (leftmostChunk is SwarmDecodedDataCac leftmostDataChunk)
+                    ThrowIfNotNodeHeader(leftmostDataChunk.Data);
+
+                var stream = ChunkDataStream.BuildNew(
+                    Chunk,
+                    Reference,
+                    chunkStore,
+                    redundancyStrategy,
+                    redundancyStrategyFallback);
+                await using (stream.ConfigureAwait(false))
+                {
+                    data = new byte[stream.Length];
+                    await stream.ReadExactlyAsync(data, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            // Whatever path read it, a content is decoded as a node only with the header of one.
+            ThrowIfNotNodeHeader(data);
+
+            // De-obfuscate and decode.
+            var obfuscationKey = new EncryptionKey256(data.AsMemory()[..EncryptionKey256.KeySize]);
+            obfuscationKey.XorEncryptDecrypt(data.AsSpan()[EncryptionKey256.KeySize..]);
+            DecodeVersion02(data.AsMemory()[HeaderSize..]);
+            _obfuscationKey = obfuscationKey;
 
             IsDecoded = true;
         }
@@ -162,7 +214,7 @@ namespace Etherna.SwarmSdk.Manifest
                 await FetchChunkAsync(cancellationToken).ConfigureAwait(false);
             
             if (!IsDecoded)
-                DecodeFromChunk();
+                await DecodeFromChunkAsync(cancellationToken).ConfigureAwait(false);
         }
 
         // Helpers.
@@ -238,6 +290,19 @@ namespace Etherna.SwarmSdk.Manifest
                     childNodeTypeFlags);
                 _forks[key] = new MantarayNodeFork(prefix, forkNode);
             }
+        }
+
+        /// <summary>
+        /// Tell a manifest node from any other content on its first bytes: the obfuscation key, and the version hash
+        /// it obfuscates
+        /// </summary>
+        private static void ThrowIfNotNodeHeader(ReadOnlyMemory<byte> content)
+        {
+            var obfuscationKey = new EncryptionKey256(content[..EncryptionKey256.KeySize]);
+            var versionHash = content[EncryptionKey256.KeySize..HeaderSize].ToArray();
+            obfuscationKey.XorEncryptDecrypt(versionHash);
+            if (!versionHash.AsSpan().SequenceEqual(Version02Hash))
+                throw new InvalidOperationException("Manifest version not recognized");
         }
     }
 }

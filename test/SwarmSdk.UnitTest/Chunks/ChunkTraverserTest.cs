@@ -13,6 +13,7 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using Etherna.SwarmSdk.Exceptions;
+using Etherna.SwarmSdk.Extensions;
 using Etherna.SwarmSdk.Hashing;
 using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Hashing.Postage;
@@ -21,9 +22,11 @@ using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Services;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -32,6 +35,20 @@ namespace Etherna.SwarmSdk.Chunks
     public class ChunkTraverserTest
     {
         // Internal classes.
+        /// <summary>
+        /// A read-only chunk store recording the hash of every chunk it is asked for
+        /// </summary>
+        private sealed class RecordingChunkStore(IReadOnlyChunkStore innerChunkStore) : ReadOnlyChunkStoreBase
+        {
+            public ConcurrentQueue<SwarmHash> RequestedHashes { get; } = new();
+
+            public override Task<SwarmChunk> GetAsync(SwarmHash hash, CancellationToken cancellationToken = default)
+            {
+                RequestedHashes.Enqueue(hash);
+                return innerChunkStore.GetAsync(hash, cancellationToken);
+            }
+        }
+
         public record TraverseFromDataChunkTestElement(
             IChunkStore ChunkStore,
             SwarmReference RootReference,
@@ -1126,6 +1143,150 @@ namespace Etherna.SwarmSdk.Chunks
         }
 
         /// <summary>
+        /// A node with enough forks spans more than a chunk, 26 files with metadata being enough: its chunk tree is
+        /// visited like any content, and what it references after it
+        /// </summary>
+        [Theory]
+        [InlineData(24, "", RedundancyLevel.None, false)] //the root node fits a chunk
+        [InlineData(26, "", RedundancyLevel.None, false)] //the root node spans more chunks
+        [InlineData(26, "docs/", RedundancyLevel.None, false)] //a fork node spans more chunks
+        [InlineData(40, "", RedundancyLevel.Medium, false)] //with the parities of the node
+        [InlineData(26, "docs/", RedundancyLevel.None, true)] //with encrypted references
+        public async Task TraverseFindsEveryChunkOfAManifestWhateverTheSizeOfItsNodes(
+            int filesCount, string directory, RedundancyLevel level, bool encrypted)
+        {
+            // Setup.
+            var (chunkStore, rootReference) = await BuildManyFilesManifestAsync(filesCount, directory, level, encrypted);
+            HashSet<SwarmHash> foundHashes = [];
+            List<SwarmReference> invalidReferences = [];
+            List<SwarmReference> notFoundReferences = [];
+
+            // Run.
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                (chunk, _) => { foundHashes.Add(chunk.Hash); return Task.CompletedTask; },
+                (_, r) => { invalidReferences.Add(r.Reference); return Task.CompletedTask; },
+                r => { notFoundReferences.Add(r.Reference); return Task.CompletedTask; },
+                level,
+                RedundancyStrategy.Data,
+                false,
+                includeParities: true);
+
+            // Assert.
+            //the pipeline also writes the replicas of the roots, single owner chunks out of the trees
+            var writtenCacHashes = chunkStore.AllChunks.Values.OfType<SwarmCac>().Select(c => c.Hash);
+            Assert.True(foundHashes.SetEquals(writtenCacHashes), "the chunks found are not the content addressed chunks written");
+            Assert.Empty(invalidReferences);
+            Assert.Empty(notFoundReferences);
+        }
+
+        [Fact]
+        public async Task TraverseReadsTheFirstChunkOnlyOfARawContentToTellItFromAManifest()
+        {
+            // Setup.
+            //a raw content of five data chunks under one root
+            var data = new byte[5 * SwarmCac.DataSize];
+            new Random(42).NextBytes(data);
+            var memoryChunkStore = new MemoryChunkStore();
+            SwarmReference rootReference;
+            using (var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                       memoryChunkStore, new FakePostageStamper(), RedundancyLevel.None, false, 0, null))
+                rootReference = await pipeline.HashDataAsync(data);
+            var rootChunk = (SwarmCac)await memoryChunkStore.GetAsync(rootReference.Hash);
+            var firstDataChunkHash = ((SwarmDecodedIntermediateCac)rootChunk.Decode(rootReference, new Hasher()))
+                .ChildReferences[0].Reference.Hash;
+            var chunkStore = new RecordingChunkStore(memoryChunkStore);
+
+            // Run.
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                null,
+                null,
+                null,
+                RedundancyLevel.None);
+
+            // Assert.
+            //the traversal asks for each chunk once, and telling the content from a manifest for its first one again
+            var requestsByHash = chunkStore.RequestedHashes.GroupBy(h => h).ToDictionary(g => g.Key, g => g.Count());
+            Assert.Equal(memoryChunkStore.AllChunks.Count, requestsByHash.Count);
+            Assert.Equal(2, requestsByHash[firstDataChunkHash]);
+            Assert.All(requestsByHash.Where(r => r.Key != firstDataChunkHash), r => Assert.Equal(1, r.Value));
+        }
+
+        /// <summary>
+        /// A node whose chunk tree misses a chunk can't be read: the chunk is reported, and the traversal ends there
+        /// for that node instead of failing
+        /// </summary>
+        [Theory]
+        [InlineData("")] //a chunk of the root node
+        [InlineData("docs/")] //a chunk of a fork node
+        public async Task TraverseReportsAMissingChunkOfANodeLargerThanAChunk(string directory)
+        {
+            // Setup.
+            var (chunkStore, rootReference) = await BuildManyFilesManifestAsync(
+                26, directory, RedundancyLevel.None, false);
+
+            //remove the last chunk of the node of the directory
+            var nodeReference = rootReference;
+            if (directory.Length != 0)
+            {
+                var rootNode = new ReferencedMantarayNode(
+                    rootReference, chunkStore, RedundancyLevel.None, RedundancyStrategy.Data, true, null, NodeType.Edge);
+                await rootNode.OnVisitingAsync();
+                nodeReference = rootNode.Forks[directory[0]].Node.Reference;
+            }
+            var nodeChunk = (SwarmCac)await chunkStore.GetAsync(nodeReference.Hash);
+            var removedHash = ((SwarmDecodedIntermediateCac)nodeChunk.Decode(nodeReference, new Hasher()))
+                .ChildReferences[^1].Reference.Hash;
+            await chunkStore.RemoveAsync(removedHash);
+            List<SwarmHash> notFoundHashes = [];
+
+            // Run.
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                null,
+                null,
+                r => { notFoundHashes.Add(r.Reference.Hash); return Task.CompletedTask; },
+                RedundancyLevel.None);
+
+            // Assert.
+            Assert.Equal([removedHash], notFoundHashes);
+        }
+
+        [Fact]
+        public async Task TraverseTellsARawContentFromAManifestWhenItsFirstChunkIsOnlyInTheParities()
+        {
+            // Setup.
+            //a raw content of five data chunks and their parities, without its first data chunk
+            var data = new byte[5 * SwarmCac.DataSize];
+            new Random(42).NextBytes(data);
+            var chunkStore = new MemoryChunkStore();
+            SwarmReference rootReference;
+            using (var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                       chunkStore, new FakePostageStamper(), RedundancyLevel.Medium, false, 0, null))
+                rootReference = await pipeline.HashDataAsync(data);
+            var rootChunk = (SwarmCac)await chunkStore.GetAsync(rootReference.Hash);
+            await chunkStore.RemoveAsync(((SwarmDecodedIntermediateCac)rootChunk.Decode(rootReference, new Hasher()))
+                .ChildReferences[0].Reference.Hash);
+            HashSet<SwarmHash> foundHashes = [];
+
+            // Run.
+            await new ChunkTraverser(chunkStore).TraverseAsync(
+                rootReference,
+                (chunk, _) => { foundHashes.Add(chunk.Hash); return Task.CompletedTask; },
+                null,
+                null,
+                RedundancyLevel.Medium,
+                RedundancyStrategy.Data,
+                true,
+                includeParities: true);
+
+            // Assert.
+            var storedCacHashes = chunkStore.AllChunks.Values.OfType<SwarmCac>().Select(c => c.Hash);
+            Assert.True(foundHashes.IsSupersetOf(storedCacHashes), "a chunk of the content is not found");
+        }
+
+        /// <summary>
         /// A parity chunk is reported as found with its shard reference, and never decoded as a content chunk
         /// </summary>
         [Theory]
@@ -1225,6 +1386,35 @@ namespace Etherna.SwarmSdk.Chunks
         }
         
         // Helpers.
+        /// <summary>
+        /// A manifest whose node of the given directory forks to a file per first character, each with its
+        /// metadata: 26 of them make a node larger than a chunk
+        /// </summary>
+        private static async Task<(MemoryChunkStore ChunkStore, SwarmReference RootReference)> BuildManyFilesManifestAsync(
+            int filesCount, string directory, RedundancyLevel level, bool encrypted)
+        {
+            const string firstChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            var chunkStore = new MemoryChunkStore();
+            var postageStamper = new FakePostageStamper();
+            var manifest = new WritableMantarayManifest(chunkStore, postageStamper, level, encrypted, 0, null);
+            for (var i = 0; i < filesCount; i++)
+            {
+                var fileName = $"{firstChars[i]}-file-{i:000}.bin";
+                var fileData = new byte[1024];
+                new Random(i).NextBytes(fileData);
+                using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                    chunkStore, postageStamper, level, encrypted, 0, null);
+                manifest.Add(directory + fileName, ManifestEntry.NewFile(
+                    await pipeline.HashDataAsync(fileData),
+                    new Dictionary<string, string>
+                    {
+                        [ManifestEntry.ContentTypeKey] = "application/octet-stream",
+                        [ManifestEntry.FilenameKey] = fileName
+                    }));
+            }
+            return (chunkStore, await manifest.GetReferenceAsync(new Hasher()));
+        }
+
         /// <summary>
         /// A root of two children with the given span, the chunks in a store
         /// </summary>
