@@ -16,6 +16,7 @@ using Etherna.SwarmSdk.Extensions;
 using Etherna.SwarmSdk.Hashing.Pipeline;
 using Etherna.SwarmSdk.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -29,10 +30,21 @@ namespace Etherna.SwarmSdk.Chunks
         SwarmChunkBmt swarmChunkBmt,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Generate the parity chunks of each level of a chunk tree. A full level is encoded and its parities are hashed
+    /// on up to <paramref name="parallelism"/> threads, while the stage feeding it waits: the parities enter the level
+    /// in their order once all are hashed
+    /// </summary>
+    /// <param name="redundancyLevel">The redundancy level</param>
+    /// <param name="encryptChunks">True if the data chunks are referenced with their key</param>
+    /// <param name="shortBmtPipelineStage">The stage hashing and storing a parity chunk</param>
+    /// <param name="parallelism">The threads a level is encoded and hashed on, as the chunk concurrency of the
+    /// pipeline</param>
     internal sealed class ChunkParityGenerator(
         RedundancyLevel redundancyLevel,
         bool encryptChunks,
-        ChunkBmtPipelineStage shortBmtPipelineStage)
+        ChunkBmtPipelineStage shortBmtPipelineStage,
+        int parallelism)
     {
         // Internal classes.
         private class ShardsBufferLevel
@@ -56,8 +68,20 @@ namespace Etherna.SwarmSdk.Chunks
             public void Clear() => DataShardsAmount = 0;
         }
         
+        // Consts.
+        private const int MinEncodingSliceSize = 256;
+
+        // Static fields.
+        /// <summary>
+        /// The encoders by data and parity shards: an encoder is immutable, and building one costs more than a level
+        /// takes to encode
+        /// </summary>
+        private static readonly ConcurrentDictionary<(int DataShards, int ParityShards), ReedSolomon.NET.ReedSolomon>
+            encoders = new();
+
         // Fields.
         private readonly List<ShardsBufferLevel> bufferLevels = [];
+        private readonly ConcurrentBag<SwarmChunkBmt> parityChunkBmts = [];
 
         // Properties.
         public bool EncryptChunks => encryptChunks;
@@ -175,27 +199,57 @@ namespace Etherna.SwarmSdk.Chunks
                 bufferLevel.Buffer[i] = new byte[SwarmCac.SpanDataSize];
             
             // Calculate parity chunks.
-            var reedSolomonEncoder = ReedSolomon.NET.ReedSolomon.Create(bufferLevel.DataShardsAmount, parities);
-            reedSolomonEncoder.EncodeParity(bufferLevel.Buffer[..totalShards], 0, SwarmCac.SpanDataSize);
-
-            // Report parity chunks.
-            for (var i = bufferLevel.DataShardsAmount; i < totalShards; i++)
+            //each byte column of the shards encodes on its own: slices of the columns encode in parallel
+            var encoder = encoders.GetOrAdd(
+                (bufferLevel.DataShardsAmount, parities),
+                shards => ReedSolomon.NET.ReedSolomon.Create(shards.DataShards, shards.ParityShards));
+            var shards = bufferLevel.Buffer[..totalShards];
+            var slices = Math.Clamp(SwarmCac.SpanDataSize / MinEncodingSliceSize, 1, parallelism);
+            var parallelOptions = new ParallelOptions
             {
-                var spanData = bufferLevel.Buffer[i];
-                var span = spanData[..SwarmCac.SpanSize];
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = parallelism
+            };
+            Parallel.For(0, slices, parallelOptions, slice =>
+            {
+                var start = SwarmCac.SpanDataSize * slice / slices;
+                var end = SwarmCac.SpanDataSize * (slice + 1) / slices;
+                encoder.EncodeParity(shards, start, end - start);
+            });
 
-                var args = new HasherPipelineFeedArgs(swarmChunkBmt, span, spanData, cancellationToken: cancellationToken);
-                await shortBmtPipelineStage.FeedAsync(args).ConfigureAwait(false);
+            // Hash parity chunks in parallel, each with a BMT of its own.
+            var parityChunksArgs = new HasherPipelineFeedArgs[parities];
+            await Parallel.ForAsync(0, parities, parallelOptions, async (parity, _) =>
+            {
+                if (!parityChunkBmts.TryTake(out var parityChunkBmt))
+                    parityChunkBmt = new SwarmChunkBmt();
+                try
+                {
+                    var spanData = bufferLevel.Buffer[bufferLevel.DataShardsAmount + parity];
+                    var args = new HasherPipelineFeedArgs(
+                        parityChunkBmt,
+                        spanData.AsMemory(0, SwarmCac.SpanSize),
+                        spanData,
+                        cancellationToken: cancellationToken); //the token of the run, as every chunk write receives
+                    await shortBmtPipelineStage.FeedAsync(args).ConfigureAwait(false);
+                    parityChunksArgs[parity] = args;
+                }
+                finally
+                {
+                    parityChunkBmts.Add(parityChunkBmt);
+                }
+            }).ConfigureAwait(false);
 
+            // Report parity chunks, in their order.
+            foreach (var args in parityChunksArgs)
                 await addParityChunkCallback(
                     chunkLevel,
                     new SwarmChunkHeader(
                         args.Reference!.Value,
-                        span,
+                        args.Span,
                         true),
                     swarmChunkBmt,
                     cancellationToken).ConfigureAwait(false);
-            }
             
             // Clear current level to reuse.
             bufferLevel.Clear();
