@@ -13,10 +13,16 @@
 // If not, see <https://www.gnu.org/licenses/>.
 
 using Etherna.SwarmSdk.Exceptions;
+using Etherna.SwarmSdk.Hashing;
+using Etherna.SwarmSdk.Hashing.Postage;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
+using Moq;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -113,6 +119,164 @@ namespace Etherna.SwarmSdk.Manifest
 
             // Assert.
             Assert.Equal(firstChild.Hash, thrown.Hash);
+        }
+
+        [Fact]
+        public async Task DecodeFromChunkAsyncWaitsForTheVisitInFlight()
+        {
+            // Setup.
+            var (node, chunkStoreMock, firstRead, nodeChunk) = await BuildNodeWithAPendingFirstReadAsync();
+
+            // Run.
+            var visit = node.OnVisitingAsync();
+            var decode = node.DecodeFromChunkAsync();
+            firstRead.SetResult(nodeChunk);
+            await Task.WhenAll(visit, decode).WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert.
+            Assert.True(node.IsDecoded);
+            chunkStoreMock.Verify(s => s.GetAsync(node.Reference.Hash, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task FetchChunkAsyncFetchesTheChunkOnceForTheFetchesAndVisitsInFlight()
+        {
+            // Setup.
+            var (node, chunkStoreMock, firstRead, nodeChunk) = await BuildNodeWithAPendingFirstReadAsync();
+
+            // Run.
+            Task[] steps = [node.FetchChunkAsync(), node.FetchChunkAsync(), node.OnVisitingAsync()];
+            firstRead.SetResult(nodeChunk);
+            await Task.WhenAll(steps).WaitAsync(TimeSpan.FromSeconds(10));
+            await node.FetchChunkAsync();
+
+            // Assert.
+            Assert.Equal(nodeChunk, node.Chunk);
+            Assert.True(node.IsDecoded);
+            chunkStoreMock.Verify(s => s.GetAsync(node.Reference.Hash, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task OnVisitingAsyncFetchesTheNodeOnceForTheVisitsInFlight()
+        {
+            // Setup.
+            var (node, chunkStoreMock, firstRead, nodeChunk) = await BuildNodeWithAPendingFirstReadAsync();
+
+            // Run.
+            Task[] visits = [node.OnVisitingAsync(), node.OnVisitingAsync(), node.OnVisitingAsync()];
+            firstRead.SetResult(nodeChunk);
+            await Task.WhenAll(visits).WaitAsync(TimeSpan.FromSeconds(10));
+
+            // Assert.
+            Assert.True(node.IsDecoded);
+            Assert.Single(node.Forks);
+            chunkStoreMock.Verify(s => s.GetAsync(node.Reference.Hash, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task OnVisitingAsyncLeavesTheNodeToTheNextVisitWhenTheOneInFlightFails()
+        {
+            // Setup.
+            var (node, chunkStoreMock, firstRead, _) = await BuildNodeWithAPendingFirstReadAsync();
+
+            // Run.
+            var failedVisit = node.OnVisitingAsync();
+            var nextVisit = node.OnVisitingAsync();
+            firstRead.SetException(new IOException("The read failed"));
+
+            // Assert.
+            await Assert.ThrowsAsync<IOException>(() => failedVisit.WaitAsync(TimeSpan.FromSeconds(10)));
+            await nextVisit.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(node.IsDecoded);
+            chunkStoreMock.Verify(
+                s => s.GetAsync(node.Reference.Hash, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task OnVisitingAsyncLeavesTheNodeToTheNextVisitWhenTheOneInFlightIsCancelled()
+        {
+            // Setup.
+            var (node, chunkStoreMock, _, _) = await BuildNodeWithAPendingFirstReadAsync();
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Run.
+            var cancelledVisit = node.OnVisitingAsync(cancellationTokenSource.Token);
+            var nextVisit = node.OnVisitingAsync();
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => cancelledVisit.WaitAsync(TimeSpan.FromSeconds(10)));
+            await nextVisit.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(node.IsDecoded);
+            chunkStoreMock.Verify(
+                s => s.GetAsync(node.Reference.Hash, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task OnVisitingAsyncLeavesTheVisitInFlightWhenAWaitingOneIsCancelled()
+        {
+            // Setup.
+            var (node, chunkStoreMock, firstRead, nodeChunk) = await BuildNodeWithAPendingFirstReadAsync();
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Run.
+            var visitInFlight = node.OnVisitingAsync();
+            var waitingVisit = node.OnVisitingAsync(cancellationTokenSource.Token);
+            await cancellationTokenSource.CancelAsync();
+
+            // Assert.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => waitingVisit.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.False(node.IsDecoded);
+
+            firstRead.SetResult(nodeChunk);
+            await visitInFlight.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(node.IsDecoded);
+            chunkStoreMock.Verify(s => s.GetAsync(node.Reference.Hash, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        // Helpers.
+        /// <summary>
+        /// A node not fetched yet, over a store whose first read of its chunk pends until the test ends it, or until
+        /// the token that read received is cancelled. The reads after the first answer the chunk
+        /// </summary>
+        private static async Task<(
+            ReferencedMantarayNode Node,
+            Mock<IReadOnlyChunkStore> ChunkStoreMock,
+            TaskCompletionSource<SwarmChunk> FirstRead,
+            SwarmChunk NodeChunk)> BuildNodeWithAPendingFirstReadAsync()
+        {
+            var manifestChunkStore = new MemoryChunkStore();
+            var manifest = new WritableMantarayManifest(
+                manifestChunkStore, new FakePostageStamper(), RedundancyLevel.None, false, 0, null);
+            manifest.Add(
+                "index.html",
+                ManifestEntry.NewFile(
+                    "1231dd7f156bc47de7dadd3b0bac0ac07dcb47f45d3528192e9e25574c8744b9",
+                    new Dictionary<string, string>()));
+            var reference = await manifest.GetReferenceAsync(new Hasher());
+            var nodeChunk = await manifestChunkStore.GetAsync(reference.Hash);
+
+            var firstRead = new TaskCompletionSource<SwarmChunk>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var reads = 0;
+            var chunkStoreMock = new Mock<IReadOnlyChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.GetAsync(reference.Hash, It.IsAny<CancellationToken>()))
+                .Returns<SwarmHash, CancellationToken>((_, cancellationToken) =>
+                    Interlocked.Increment(ref reads) == 1 ?
+                        firstRead.Task.WaitAsync(cancellationToken) :
+                        Task.FromResult(nodeChunk));
+
+            var node = new ReferencedMantarayNode(
+                reference,
+                chunkStoreMock.Object,
+                RedundancyLevel.None,
+                RedundancyStrategy.Data,
+                true,
+                null,
+                NodeType.Edge);
+            return (node, chunkStoreMock, firstRead, nodeChunk);
         }
     }
 }

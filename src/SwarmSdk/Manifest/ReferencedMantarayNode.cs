@@ -28,6 +28,12 @@ using System.Threading.Tasks;
 
 namespace Etherna.SwarmSdk.Manifest
 {
+    /// <summary>
+    /// A node of a manifest in a chunk store, fetched and decoded at its first visit. It is safe for concurrent
+    /// use: the visits (<see cref="OnVisitingAsync"/>), fetches (<see cref="FetchChunkAsync"/>) and decodes
+    /// (<see cref="DecodeFromChunkAsync"/>) asked together run one at a time, and each is skipped once what it
+    /// does is done, so a node is fetched and decoded once however many lookups walk into it
+    /// </summary>
     public sealed class ReferencedMantarayNode : MantarayNodeBase
     {
         // Consts.
@@ -44,14 +50,17 @@ namespace Etherna.SwarmSdk.Manifest
                 MantarayNodeFork.MetadataBytesSize + ushort.MaxValue + EncryptionKey256.KeySize);
 
         // Fields.
+        private volatile SwarmCac? _chunk;
         private SwarmReference? _entryReference;
         private readonly Dictionary<char, MantarayNodeFork> _forks = new();
+        private volatile bool _isDecoded;
         private readonly IReadOnlyDictionary<string, string> _metadata;
         private EncryptionKey256? _obfuscationKey;
         private readonly IReadOnlyChunkStore chunkStore;
         private readonly RedundancyLevel redundancyLevel;
         private readonly RedundancyStrategy redundancyStrategy;
         private readonly bool redundancyStrategyFallback;
+        private Task? stepInFlight;
 
         // Constructors.
         public ReferencedMantarayNode(
@@ -76,7 +85,7 @@ namespace Etherna.SwarmSdk.Manifest
             this.redundancyStrategy = redundancyStrategy;
             this.redundancyStrategyFallback = redundancyStrategyFallback;
             _metadata = metadata ?? new Dictionary<string, string>();
-            Chunk = chunk;
+            _chunk = chunk;
             NodeTypeFlags = nodeTypeFlags;
             Reference = reference;
         }
@@ -100,14 +109,14 @@ namespace Etherna.SwarmSdk.Manifest
         }
 
         // Properties.
-        public SwarmCac? Chunk { get; private set; }
+        public SwarmCac? Chunk => _chunk;
         public override SwarmReference? EntryReference => IsDecoded
             ? _entryReference
             : throw new InvalidOperationException("Node is not decoded from chunk");
         public override IReadOnlyDictionary<char, MantarayNodeFork> Forks => IsDecoded
             ? _forks
             : throw new InvalidOperationException("Node is not decoded from chunk");
-        public bool IsDecoded { get; private set; }
+        public bool IsDecoded => _isDecoded;
         public override IReadOnlyDictionary<string, string> Metadata => _metadata;
         public override NodeType NodeTypeFlags { get; }
         public override EncryptionKey256? ObfuscationKey => IsDecoded
@@ -118,19 +127,46 @@ namespace Etherna.SwarmSdk.Manifest
         // Methods.
         /// <summary>
         /// Decode the node from the content of its chunk tree: a node with enough forks spans more chunks than its
-        /// root, which are fetched with the redundancy strategy of the node
+        /// root, which are fetched with the redundancy strategy of the node. A decoded node is not decoded again
         /// </summary>
         /// <param name="cancellationToken">The cancellation token</param>
-        /// <exception cref="InvalidOperationException">The content at the reference is not a manifest node</exception>
-        public async Task DecodeFromChunkAsync(CancellationToken cancellationToken = default)
+        /// <exception cref="InvalidOperationException">
+        /// The chunk is not fetched, or the content at the reference is not a manifest node
+        /// </exception>
+        public Task DecodeFromChunkAsync(CancellationToken cancellationToken = default) =>
+            IsDecoded ? Task.CompletedTask : RunOneAtATimeAsync(() => IsDecoded, DecodeCoreAsync, cancellationToken);
+        
+        /// <summary>
+        /// Fetch the chunk of the node, looking up its replicas at the redundancy level of the node. A fetched chunk
+        /// is not fetched again
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        public Task FetchChunkAsync(CancellationToken cancellationToken = default) =>
+            Chunk is not null
+                ? Task.CompletedTask
+                : RunOneAtATimeAsync(() => Chunk is not null, FetchCoreAsync, cancellationToken);
+        
+        /// <summary>
+        /// Fetch and decode the node, unless it is decoded
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token</param>
+        public override Task OnVisitingAsync(CancellationToken cancellationToken = default) =>
+            IsDecoded ? Task.CompletedTask : RunOneAtATimeAsync(
+                () => IsDecoded,
+                async ct =>
+                {
+                    if (Chunk is null)
+                        await FetchCoreAsync(ct).ConfigureAwait(false);
+                    await DecodeCoreAsync(ct).ConfigureAwait(false);
+                },
+                cancellationToken);
+
+        // Helpers.
+        private async Task DecodeCoreAsync(CancellationToken cancellationToken)
         {
-            if (Chunk == null)
-                throw new InvalidOperationException("Chunk not fetched");
-            if (IsDecoded)
-                return;
-            
+            var chunk = Chunk ?? throw new InvalidOperationException("Chunk not fetched");
             var hasher = new Hasher();
-            var decodedRoot = Chunk.Decode(Reference, hasher);
+            var decodedRoot = chunk.Decode(Reference, hasher);
             if (decodedRoot.SpanLength < HeaderSize)
                 throw new InvalidOperationException("Content is too short to be a manifest node");
             if (decodedRoot.SpanLength > MaxNodeSize)
@@ -163,7 +199,7 @@ namespace Etherna.SwarmSdk.Manifest
                     ThrowIfNotNodeHeader(leftmostDataChunk.Data);
 
                 var stream = ChunkDataStream.BuildNew(
-                    Chunk,
+                    chunk,
                     Reference,
                     chunkStore,
                     redundancyStrategy,
@@ -184,40 +220,9 @@ namespace Etherna.SwarmSdk.Manifest
             DecodeVersion02(data.AsMemory()[HeaderSize..]);
             _obfuscationKey = obfuscationKey;
 
-            IsDecoded = true;
-        }
-        
-        /// <summary>
-        /// Fetch the chunk of the node, looking up its replicas at the redundancy level of the node
-        /// </summary>
-        /// <param name="cancellationToken">The cancellation token</param>
-        public async Task FetchChunkAsync(CancellationToken cancellationToken = default)
-        {
-            // Use chunk replica resolver if required.
-            var rootChunkStore = redundancyLevel == RedundancyLevel.None ?
-                chunkStore :
-                new ReplicaResolverChunkStore(chunkStore, redundancyLevel, new Hasher());
-            
-            // Resolve root chunk.
-            var rootChunk = await rootChunkStore.GetAsync(
-                Reference.Hash,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            if (rootChunk is not SwarmCac rootCac) //soc is not supported
-                throw new SwarmChunkTypeException(rootChunk, $"Chunk {Reference} is not a Content Addressed Chunk.");
-
-            Chunk = rootCac;
-        }
-        
-        public override async Task OnVisitingAsync(CancellationToken cancellationToken = default)
-        {
-            if (Chunk is null)
-                await FetchChunkAsync(cancellationToken).ConfigureAwait(false);
-            
-            if (!IsDecoded)
-                await DecodeFromChunkAsync(cancellationToken).ConfigureAwait(false);
+            _isDecoded = true;
         }
 
-        // Helpers.
         private void DecodeVersion02(ReadOnlyMemory<byte> data)
         {
             var readIndex = 0;
@@ -289,6 +294,57 @@ namespace Etherna.SwarmSdk.Manifest
                     childNodeMetadata,
                     childNodeTypeFlags);
                 _forks[key] = new MantarayNodeFork(prefix, forkNode);
+            }
+        }
+
+        private async Task FetchCoreAsync(CancellationToken cancellationToken)
+        {
+            // Use chunk replica resolver if required.
+            var rootChunkStore = redundancyLevel == RedundancyLevel.None ?
+                chunkStore :
+                new ReplicaResolverChunkStore(chunkStore, redundancyLevel, new Hasher());
+            
+            // Resolve root chunk.
+            var rootChunk = await rootChunkStore.GetAsync(
+                Reference.Hash,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (rootChunk is not SwarmCac rootCac) //soc is not supported
+                throw new SwarmChunkTypeException(rootChunk, $"Chunk {Reference} is not a Content Addressed Chunk.");
+
+            _chunk = rootCac;
+        }
+
+        /// <summary>
+        /// Run a step on the node unless it is done, one step at a time: the first caller runs it, the others wait for
+        /// it, each with its own token, and then look again. A step that fails or is cancelled leaves the node to the
+        /// next caller, which runs what is still missing
+        /// </summary>
+        private async Task RunOneAtATimeAsync(
+            Func<bool> isDone,
+            Func<CancellationToken, Task> step,
+            CancellationToken cancellationToken)
+        {
+            while (!isDone())
+            {
+                // Become the step in flight, or wait for the one that is.
+                var thisStep = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var otherStep = Interlocked.CompareExchange(ref stepInFlight, thisStep.Task, null);
+                if (otherStep is not null)
+                {
+                    //it ends with no error, whatever its outcome: look again at what it left
+                    await otherStep.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                try
+                {
+                    await step(cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    Volatile.Write(ref stepInFlight, null);
+                    thisStep.SetResult();
+                }
             }
         }
 
