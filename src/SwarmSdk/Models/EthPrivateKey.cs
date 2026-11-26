@@ -30,6 +30,8 @@ namespace Etherna.SwarmSdk.Models
 
         // Fields.
         private readonly byte[] bytes;
+        private readonly Lazy<EthAddress> address;
+        private readonly Lazy<EthPublicKey> publicKey;
 
         // Constructors.
         public EthPrivateKey(byte[] privateKey)
@@ -39,6 +41,7 @@ namespace Etherna.SwarmSdk.Models
                 throw new ArgumentOutOfRangeException(nameof(privateKey));
 
             bytes = (byte[])privateKey.Clone();
+            (publicKey, address) = BuildDerivedKeys(bytes);
         }
 
         public EthPrivateKey(string privateKey)
@@ -59,11 +62,19 @@ namespace Etherna.SwarmSdk.Models
                 throw new ArgumentOutOfRangeException(nameof(privateKey));
 
             bytes = parsed;
+            (publicKey, address) = BuildDerivedKeys(bytes);
         }
 
         // Properties.
-        public EthAddress Address => PublicKey.ToAddress();
-        public EthPublicKey PublicKey => new(Secp256k1.GetPublicKey(bytes));
+        /// <summary>
+        /// The address of the key, derived at the first read: a derivation multiplies on the curve
+        /// </summary>
+        public EthAddress Address => address.Value;
+
+        /// <summary>
+        /// The public key, derived at the first read: a derivation multiplies on the curve
+        /// </summary>
+        public EthPublicKey PublicKey => publicKey.Value;
 
         // Methods.
         /// <summary>
@@ -73,5 +84,16 @@ namespace Etherna.SwarmSdk.Models
         /// <param name="hasher">Optional Keccak hasher to reuse; must not be shared across threads</param>
         /// <returns>A 65-byte r||s||v signature</returns>
         public byte[] Sign(ReadOnlySpan<byte> digest, Hasher? hasher = null) => Secp256k1.Sign(digest, bytes, hasher);
+
+        // Helpers.
+        /// <summary>
+        /// The public key and the address of a private key, each derived once, at its first read from any thread
+        /// </summary>
+        private static (Lazy<EthPublicKey> PublicKey, Lazy<EthAddress> Address) BuildDerivedKeys(byte[] privateKey)
+        {
+            var publicKey = new Lazy<EthPublicKey>(() => new EthPublicKey(Secp256k1.GetPublicKey(privateKey)));
+            var address = new Lazy<EthAddress>(() => publicKey.Value.ToAddress());
+            return (publicKey, address);
+        }
     }
 }
