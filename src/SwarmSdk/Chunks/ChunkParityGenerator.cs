@@ -71,14 +71,6 @@ namespace Etherna.SwarmSdk.Chunks
         // Consts.
         private const int MinEncodingSliceSize = 256;
 
-        // Static fields.
-        /// <summary>
-        /// The encoders by data and parity shards: an encoder is immutable, and building one costs more than a level
-        /// takes to encode
-        /// </summary>
-        private static readonly ConcurrentDictionary<(int DataShards, int ParityShards), ReedSolomon.NET.ReedSolomon>
-            encoders = new();
-
         // Fields.
         private readonly List<ShardsBufferLevel> bufferLevels = [];
         private readonly ConcurrentBag<SwarmChunkBmt> parityChunkBmts = [];
@@ -200,9 +192,7 @@ namespace Etherna.SwarmSdk.Chunks
             
             // Calculate parity chunks.
             //each byte column of the shards encodes on its own: slices of the columns encode in parallel
-            var encoder = encoders.GetOrAdd(
-                (bufferLevel.DataShardsAmount, parities),
-                shards => ReedSolomon.NET.ReedSolomon.Create(shards.DataShards, shards.ParityShards));
+            var encoder = ReedSolomonEncoders.Get(bufferLevel.DataShardsAmount, parities);
             var shards = bufferLevel.Buffer[..totalShards];
             var slices = Math.Clamp(SwarmCac.SpanDataSize / MinEncodingSliceSize, 1, parallelism);
             var parallelOptions = new ParallelOptions

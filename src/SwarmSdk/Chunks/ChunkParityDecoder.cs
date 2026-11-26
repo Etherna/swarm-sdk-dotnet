@@ -245,9 +245,7 @@ namespace Etherna.SwarmSdk.Chunks
                 return;
 
             // Run actual recovery. Use Reed-Solomon erasure coding decoder to recover data shards.
-            var reedSolomonEncoder = ReedSolomon.NET.ReedSolomon.Create(
-                dataShardsAmount,
-                shardsBuffer.Length - dataShardsAmount);
+            var reedSolomonEncoder = ReedSolomonEncoders.Get(dataShardsAmount, shardsBuffer.Length - dataShardsAmount);
 
             var shardsPresent = new bool[shardsBuffer.Length];
 
