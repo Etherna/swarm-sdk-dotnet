@@ -32,7 +32,7 @@ namespace Etherna.SwarmSdk.Models
         // Fields.
         private readonly uint[] _buckets;
         private long _totalChunks;
-        private readonly Dictionary<uint, HashSet<uint>> bucketsByCollisions = new(); //<collisions, bucketId[]>
+        private readonly List<int> bucketsCountByCollisions; //index: collisions, value: buckets with them
         private readonly ReaderWriterLockSlim bucketsLock = new(LockRecursionPolicy.NoRecursion);
         private bool disposed;
         
@@ -47,14 +47,17 @@ namespace Etherna.SwarmSdk.Models
             
             // Init.
             _buckets = initialBuckets ?? new uint[BucketsSize];
-            for (uint i = 0; i < BucketsSize; i++)
+            if (initialBuckets is null)
+                bucketsCountByCollisions = [BucketsSize];
+            else
             {
-                bucketsByCollisions.TryAdd(_buckets[i], []);
-                bucketsByCollisions[_buckets[i]].Add(i);
+                bucketsCountByCollisions = [.. new int[_buckets.Max() + 1]];
+                foreach (var collisions in _buckets)
+                    bucketsCountByCollisions[(int)collisions]++;
             }
 
-            MaxBucketCollisions = 0;
-            MinBucketCollisions = 0;
+            MaxBucketCollisions = (uint)bucketsCountByCollisions.Count - 1;
+            MinBucketCollisions = (uint)bucketsCountByCollisions.FindIndex(count => count > 0);
             _totalChunks = 0;
         }
 
@@ -102,7 +105,7 @@ namespace Etherna.SwarmSdk.Models
             bucketsLock.EnterReadLock();
             try
             {
-                return bucketsByCollisions.Select(pair => pair.Value.Count).ToArray();
+                return bucketsCountByCollisions.ToArray();
             }
             finally
             {
@@ -128,9 +131,12 @@ namespace Etherna.SwarmSdk.Models
             bucketsLock.EnterReadLock();
             try
             {
-                return bucketsByCollisions.TryGetValue(collisions, out var bucketsSet)
-                    ? bucketsSet
-                    : Array.Empty<uint>();
+                //rarely asked: the buckets are found scanning them, not kept by collisions on every stamp
+                var bucketIds = new List<uint>();
+                for (uint i = 0; i < BucketsSize; i++)
+                    if (_buckets[i] == collisions)
+                        bucketIds.Add(i);
+                return bucketIds;
             }
             finally
             {
@@ -162,19 +168,18 @@ namespace Etherna.SwarmSdk.Models
             try
             {
                 // Update collections.
-                _buckets[bucketId]++;
-                
-                bucketsByCollisions.TryAdd(_buckets[bucketId], []);
-                bucketsByCollisions[_buckets[bucketId] - 1].Remove(bucketId);
-                bucketsByCollisions[_buckets[bucketId]].Add(bucketId);
+                var collisions = ++_buckets[bucketId];
+                if (collisions == bucketsCountByCollisions.Count)
+                    bucketsCountByCollisions.Add(0);
+                bucketsCountByCollisions[(int)collisions - 1]--;
+                bucketsCountByCollisions[(int)collisions]++;
                 
                 // Update counters.
-                if (_buckets[bucketId] > MaxBucketCollisions)
-                    MaxBucketCollisions = _buckets[bucketId];
-                    
-                MinBucketCollisions = bucketsByCollisions.OrderBy(p => p.Key)
-                    .First(p => p.Value.Count > 0)
-                    .Key;
+                //a bucket moves up by one collision: the lowest level it leaves empty passes to the next one
+                if (collisions > MaxBucketCollisions)
+                    MaxBucketCollisions = collisions;
+                if (bucketsCountByCollisions[(int)MinBucketCollisions] == 0)
+                    MinBucketCollisions++;
                     
                 _totalChunks++;
             }
@@ -193,13 +198,12 @@ namespace Etherna.SwarmSdk.Models
                 var oldCollisions = _buckets[bucketId];
                 _buckets[bucketId] = 0;
                 
-                bucketsByCollisions[oldCollisions].Remove(bucketId);
-                bucketsByCollisions[0].Add(bucketId);
+                bucketsCountByCollisions[(int)oldCollisions]--;
+                bucketsCountByCollisions[0]++;
             
                 // Update counters.
-                MaxBucketCollisions = bucketsByCollisions.OrderByDescending(p => p.Key)
-                    .First(p => p.Value.Count > 0)
-                    .Key;
+                while (MaxBucketCollisions > 0 && bucketsCountByCollisions[(int)MaxBucketCollisions] == 0)
+                    MaxBucketCollisions--;
                 
                 MinBucketCollisions = 0;
             }

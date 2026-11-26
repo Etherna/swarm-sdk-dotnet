@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Benchmarks of SwarmSdk, with BenchmarkDotNet. Run them in Release, passing the filter of the benchmarks to run
+    after the double dash that ends the arguments of dotnet run: the filter '*' runs them all, '*Pipeline*' the ones
+    of the hasher pipeline. Every benchmark reports the bytes it allocates beside its time. Compare two commits
+    running the same benchmarks on each, on the same machine.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Etherna.SwarmSdk.Benchmark</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SwarmSdk\SwarmSdk.csproj" />
+  </ItemGroup>
+
+</Project>
