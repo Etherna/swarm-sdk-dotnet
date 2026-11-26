@@ -31,7 +31,88 @@ namespace Etherna.SwarmSdk.Services
 {
     public class ChunkService : IChunkService
     {
+        // Internal classes.
+        /// <summary>
+        /// A hasher pipeline recording the length of the data it hashes
+        /// </summary>
+        private sealed class LengthRecordingHasherPipeline(
+            IHasherPipeline innerPipeline,
+            List<long> lengths)
+            : IHasherPipeline
+        {
+            // Dispose.
+            public void Dispose() => innerPipeline.Dispose();
+
+            // Properties.
+            public bool IsUsable => innerPipeline.IsUsable;
+            public long MissedOptimisticHashing => innerPipeline.MissedOptimisticHashing;
+            public IPostageStamper PostageStamper => innerPipeline.PostageStamper;
+
+            // Methods.
+            public Task<SwarmReference> HashDataAsync(byte[] data, CancellationToken cancellationToken = default)
+            {
+                ArgumentNullException.ThrowIfNull(data);
+                lengths.Add(data.Length);
+                return innerPipeline.HashDataAsync(data, cancellationToken);
+            }
+
+            public Task<SwarmReference> HashDataAsync(Stream dataStream, CancellationToken cancellationToken = default)
+            {
+                ArgumentNullException.ThrowIfNull(dataStream);
+                lengths.Add(dataStream.Length);
+                return innerPipeline.HashDataAsync(dataStream, cancellationToken);
+            }
+        }
+
         // Methods.
+        public long CountContentChunks(
+            long dataLength,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
+            bool encrypt = false,
+            ushort compactLevel = 0)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(dataLength);
+
+            var treeChunks = CountTreeChunks(
+                (ulong)dataLength,
+                redundancyLevel,
+                encrypt || compactLevel > 0);
+            var rootReplicas = redundancyLevel == RedundancyLevel.None ? 0 : 1L << (int)redundancyLevel;
+            return treeChunks + rootReplicas;
+        }
+
+        public async Task<long> CountManifestChunksAsync(
+            IEnumerable<KeyValuePair<string, ManifestEntry>> entries,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
+            bool encrypt = false,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(entries);
+
+            // Serialize the nodes, recording the length of each one.
+            //the obfuscation key doesn't change the length of a node: the zero one spares mining it
+            var rootNode = new WritableMantarayNode(encrypt, 0, EncryptionKey256.Zero);
+            foreach (var (path, entry) in entries)
+                rootNode.Add(path, entry);
+
+            var nodeLengths = new List<long>();
+            await rootNode.ComputeHashAsync(
+                new Hasher(),
+                _ => new LengthRecordingHasherPipeline(
+                    HasherPipelineBuilder.BuildNewHasherPipeline(
+                        new FakeChunkStore(),
+                        new FakePostageStamper(),
+                        RedundancyLevel.None,
+                        encrypt,
+                        0,
+                        null,
+                        true),
+                    nodeLengths),
+                cancellationToken).ConfigureAwait(false);
+
+            return nodeLengths.Sum(length => CountContentChunks(length, redundancyLevel, encrypt));
+        }
+
         public async Task<Stream> GetFileStreamFromAddressAsync(
             SwarmAddress address,
             ManifestPathResolver manifestPathResolver,
@@ -357,6 +438,35 @@ namespace Etherna.SwarmSdk.Services
                 compactLevel,
                 chunkCuncorrency);
             return await fileHasherPipeline.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Helpers.
+        /// <summary>
+        /// The chunks of the tree of a content of the span length: its root and, for an intermediate root, the
+        /// parities of its children and their trees. Every child but the last covers the same span
+        /// </summary>
+        private static long CountTreeChunks(
+            ulong spanLength,
+            RedundancyLevel redundancyLevel,
+            bool encryptedReferences)
+        {
+            if (spanLength <= SwarmCac.DataSize)
+                return 1;
+
+            if (!SwarmCac.TryGetIntermediateLayout(
+                    spanLength,
+                    redundancyLevel,
+                    encryptedReferences,
+                    out var dataShards,
+                    out var parityShards,
+                    out var referenceSpanLength))
+                throw new ArgumentOutOfRangeException(
+                    nameof(spanLength), $"No chunk tree holds a content of {spanLength} bytes");
+
+            var lastSpanLength = spanLength - referenceSpanLength * (ulong)(dataShards - 1);
+            return 1 + parityShards +
+                   (dataShards - 1) * CountTreeChunks(referenceSpanLength, redundancyLevel, encryptedReferences) +
+                   CountTreeChunks(lastSpanLength, redundancyLevel, encryptedReferences);
         }
     }
 }

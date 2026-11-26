@@ -18,6 +18,7 @@ using Etherna.SwarmSdk.Manifest;
 using Etherna.SwarmSdk.Models;
 using Etherna.SwarmSdk.Stores;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,43 @@ namespace Etherna.SwarmSdk.Services
 {
     public interface IChunkService
     {
+        /// <summary>
+        /// Count the chunks the hasher pipeline writes for a content, from its length, without hashing it: its data
+        /// chunks, the intermediate chunks of its chunk tree, their parity chunks and, with redundancy, the replicas
+        /// of the root chunk. The count assumes no chunk repeats another: chunks with equal content share one
+        /// address, and only hashing the content could tell them
+        /// </summary>
+        /// <param name="dataLength">The length of the content in bytes</param>
+        /// <param name="redundancyLevel">The redundancy level of the upload</param>
+        /// <param name="encrypt">True if the upload is encrypted</param>
+        /// <param name="compactLevel">The compaction level of the upload: a compacted chunk is referenced with its
+        /// key, as an encrypted one</param>
+        /// <returns>The chunks written</returns>
+        long CountContentChunks(
+            long dataLength,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
+            bool encrypt = false,
+            ushort compactLevel = 0);
+
+        /// <summary>
+        /// Count the chunks a manifest of the entries writes: for each node, the chunks of its content as
+        /// <see cref="CountContentChunks"/> counts them, from the length of the serialized node. The count depends on
+        /// the size of the references of the entries, not on their value: a manifest can be counted before its
+        /// content is uploaded, with placeholders (<see cref="SwarmReference.PlainZero"/>, or
+        /// <see cref="SwarmReference.EncryptedZero"/> for an encrypted upload). Compaction doesn't change it: a
+        /// manifest compacts its nodes by their obfuscation key, not by the size of their references
+        /// </summary>
+        /// <param name="entries">The entries of the manifest, by path</param>
+        /// <param name="redundancyLevel">The redundancy level of the upload</param>
+        /// <param name="encrypt">True if the upload is encrypted</param>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>The chunks written</returns>
+        Task<long> CountManifestChunksAsync(
+            IEnumerable<KeyValuePair<string, ManifestEntry>> entries,
+            RedundancyLevel redundancyLevel = RedundancyLevel.None,
+            bool encrypt = false,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// Get resource stream from a chunks store and the resource address
         /// </summary>
