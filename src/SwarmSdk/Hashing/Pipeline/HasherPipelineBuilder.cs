@@ -49,7 +49,8 @@ namespace Etherna.SwarmSdk.Hashing.Pipeline
                             chunkStore,
                             postageStamper,
                             null,
-                            readOnly))),
+                            readOnly)),
+                    Math.Max(chunkConcurrency ?? Environment.ProcessorCount, 1)),
                 new ChunkReplicator(
                     redundancyLevel,
                     chunkStore,

@@ -20,6 +20,7 @@ using Moq;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -525,6 +526,49 @@ namespace Etherna.SwarmSdk.Hashing
         }
         
         // Tests.
+        /// <summary>
+        /// The parities of a full level are hashed and written in parallel: a cancellation among them waits for the
+        /// writes already started
+        /// </summary>
+        [Fact]
+        public async Task CancelledParanoidRunLeavesNoParityWriteInFlight()
+        {
+            // Setup.
+            //100 data chunks: the first level of 39 makes 89 parities, written after the 39 data chunks
+            var data = new byte[SwarmCac.DataSize * 100];
+            new Random(0).NextBytes(data);
+
+            //a store that cancels the run at its 50th write, and takes its time to end each one
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var startedWrites = 0;
+            var endedWrites = 0;
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmChunk, CancellationToken>(async (_, _) =>
+                {
+                    if (Interlocked.Increment(ref startedWrites) == 50)
+                        await cancellationTokenSource.CancelAsync();
+                    await Task.Delay(10);
+                    Interlocked.Increment(ref endedWrites);
+                    return true;
+                });
+            using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                chunkStoreMock.Object,
+                new FakePostageStamper(),
+                RedundancyLevel.Paranoid,
+                false,
+                0,
+                4);
+
+            // Run.
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => pipeline.HashDataAsync(data, cancellationTokenSource.Token));
+
+            // Assert.
+            Assert.Equal(startedWrites, endedWrites);
+        }
+
         [Fact]
         public async Task CancelledRunLeavesNoChunkWriteInFlight()
         {
@@ -632,6 +676,133 @@ namespace Etherna.SwarmSdk.Hashing
             Assert.True(writes.Count(w => w.Chunk is SwarmCac) > 4);
             Assert.Equal(2, writes.Count(w => w.Chunk is SwarmSoc));
             Assert.All(writes, w => Assert.Equal(cancellationTokenSource.Token, w.Token));
+        }
+
+        [Fact]
+        public async Task FailedParityWriteThrowsTheStoreFailure()
+        {
+            // Setup.
+            //100 data chunks at Paranoid: the writes after the 39 data chunks of the first level are its parities
+            var data = new byte[SwarmCac.DataSize * 100];
+            new Random(0).NextBytes(data);
+            var writes = 0;
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmChunk, CancellationToken>((_, _) => Interlocked.Increment(ref writes) == 60
+                    ? throw new IOException("The store failed")
+                    : Task.FromResult(true));
+            using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                chunkStoreMock.Object,
+                new FakePostageStamper(),
+                RedundancyLevel.Paranoid,
+                false,
+                0,
+                4);
+
+            // Run.
+            var thrown = await Assert.ThrowsAsync<IOException>(() => pipeline.HashDataAsync(data));
+
+            // Assert.
+            Assert.Equal("The store failed", thrown.Message);
+        }
+
+        /// <summary>
+        /// The parities of a level are encoded in slices of their bytes and hashed in parallel, up to the chunk
+        /// concurrency: the reference and the chunks written don't depend on it
+        /// </summary>
+        [Theory]
+        [InlineData(RedundancyLevel.Medium)]
+        [InlineData(RedundancyLevel.Strong)]
+        [InlineData(RedundancyLevel.Insane)]
+        [InlineData(RedundancyLevel.Paranoid)]
+        public async Task HashDataAsyncAnswersTheSameReferenceAtAnyChunkConcurrency(RedundancyLevel redundancyLevel)
+        {
+            // Setup.
+            //enough data chunks for two levels of intermediate chunks at Paranoid, which holds 39 per chunk
+            var data = new byte[SwarmCac.DataSize * 1700 + 7];
+            new Random(0).NextBytes(data);
+
+            async Task<(SwarmReference Reference, SwarmHash[] Writes)> HashAsync(int chunkConcurrency)
+            {
+                var writes = new ConcurrentBag<SwarmHash>();
+                var chunkStoreMock = new Mock<IChunkStore>();
+                chunkStoreMock
+                    .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                    .Returns<SwarmChunk, CancellationToken>((chunk, _) =>
+                    {
+                        writes.Add(chunk.Hash);
+                        return Task.FromResult(true);
+                    });
+                using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                    chunkStoreMock.Object, new FakePostageStamper(), redundancyLevel, false, 0, chunkConcurrency);
+                var reference = await pipeline.HashDataAsync(data);
+                return (reference, writes.Order().ToArray());
+            }
+
+            // Run.
+            var serial = await HashAsync(1);
+            var parallel = await HashAsync(16);
+
+            // Assert.
+            Assert.Equal(serial.Reference, parallel.Reference);
+            Assert.Equal(serial.Writes, parallel.Writes);
+        }
+
+        /// <summary>
+        /// One full Paranoid level: 39 data chunks, then 89 parities and the root, written while the aggregator holds
+        /// its mutex. The parities are hashed and written in parallel up to the chunk concurrency, never beyond
+        /// </summary>
+        [Fact]
+        public async Task ParityChunksOfALevelAreWrittenInParallelUpToTheChunkConcurrency()
+        {
+            // Setup.
+            const int chunkConcurrency = 4;
+            var data = new byte[SwarmCac.DataSize * 39];
+            new Random(0).NextBytes(data);
+            var bmt = new SwarmChunkBmt();
+            var dataChunkHashes = Enumerable.Range(0, 39)
+                .Select(i =>
+                {
+                    var hash = bmt.Hash(
+                        SwarmCac.LengthToSpan(SwarmCac.DataSize),
+                        data.AsMemory(i * SwarmCac.DataSize, SwarmCac.DataSize));
+                    bmt.Clear();
+                    return hash;
+                })
+                .ToHashSet();
+
+            //a store that takes its time to write the content chunks that are not data chunks: the parities, then the root
+            var parityWritesInFlight = 0;
+            var maxParityWritesInFlight = 0;
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns<SwarmChunk, CancellationToken>(async (chunk, _) =>
+                {
+                    if (chunk is not SwarmCac || dataChunkHashes.Contains(chunk.Hash))
+                        return true;
+                    var inFlight = Interlocked.Increment(ref parityWritesInFlight);
+                    int max;
+                    while ((max = Volatile.Read(ref maxParityWritesInFlight)) < inFlight &&
+                           Interlocked.CompareExchange(ref maxParityWritesInFlight, inFlight, max) != max) { }
+                    await Task.Delay(20);
+                    Interlocked.Decrement(ref parityWritesInFlight);
+                    return true;
+                });
+            using var pipeline = HasherPipelineBuilder.BuildNewHasherPipeline(
+                chunkStoreMock.Object,
+                new FakePostageStamper(),
+                RedundancyLevel.Paranoid,
+                false,
+                0,
+                chunkConcurrency);
+
+            // Run.
+            await pipeline.HashDataAsync(data);
+
+            // Assert.
+            Assert.Equal(chunkConcurrency, maxParityWritesInFlight);
         }
 
         [Theory]
