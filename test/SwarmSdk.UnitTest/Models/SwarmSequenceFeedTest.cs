@@ -303,6 +303,26 @@ namespace Etherna.SwarmSdk.Models
             Assert.Equal(BuildSequenceFeedChunk(10).Hash, result?.Hash);
         }
 
+        /// <summary>
+        /// Over a feed updated up to index 10, the read of index 10 times out: it counts as not found, and the lookup
+        /// answers the last update it reads, at index 9
+        /// </summary>
+        [Fact]
+        public async Task TryFindLastFeedChunkAnswersTheLastUpdateItReadsWhenAnExistingOneTimesOut()
+        {
+            // Setup.
+            var (sequenceFeed, chunkStore, fakeTimeProvider) = await BuildFeedWithAPendingReadAsync(10);
+
+            // Act.
+            var lookup = sequenceFeed.TryFindLastFeedChunkAsync(null, chunkStore);
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            fakeTimeProvider.Advance(TimeSpan.FromSeconds(11));
+
+            // Assert.
+            var result = await lookup.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(BuildSequenceFeedChunk(9).Hash, result?.Hash);
+        }
+
         [Fact]
         public async Task TryFindLastFeedChunkCancelledAfterItsFirstReadStartsNoOtherRead()
         {
@@ -365,7 +385,73 @@ namespace Etherna.SwarmSdk.Models
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(10)));
         }
 
+        /// <summary>
+        /// Over a feed updated up to index 10, the read of an index after the last one times out: it counts as not
+        /// found, as an index after the last one is
+        /// </summary>
+        [Theory]
+        [InlineData(13UL)]
+        [InlineData(14UL)]
+        [InlineData(255UL)]
+        public async Task TryFindLastFeedChunkCountsAProbeTimedOutAsNotFound(ulong pendingIndex)
+        {
+            // Setup.
+            var (sequenceFeed, chunkStore, fakeTimeProvider) = await BuildFeedWithAPendingReadAsync(pendingIndex);
+
+            // Act.
+            var lookup = sequenceFeed.TryFindLastFeedChunkAsync(null, chunkStore);
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            fakeTimeProvider.Advance(TimeSpan.FromSeconds(11));
+
+            // Assert.
+            var result = await lookup.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(BuildSequenceFeedChunk(10).Hash, result?.Hash);
+        }
+
+        /// <summary>
+        /// The first read tells an empty feed from a feed with updates: the timeout of the probes doesn't end it,
+        /// the caller's token does
+        /// </summary>
+        [Fact]
+        public async Task TryFindLastFeedChunkDoesNotBoundItsFirstRead()
+        {
+            // Setup.
+            var (sequenceFeed, chunkStore, fakeTimeProvider) = await BuildFeedWithAPendingReadAsync(0);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            // Act.
+            var lookup = sequenceFeed.TryFindLastFeedChunkAsync(
+                null, chunkStore, cancellationToken: cancellationTokenSource.Token);
+            await chunkStore.PendingReadStarted.WaitAsync(TimeSpan.FromSeconds(10));
+            fakeTimeProvider.Advance(TimeSpan.FromHours(1));
+            await Task.WhenAny(lookup, Task.Delay(TimeSpan.FromMilliseconds(200)));
+
+            // Assert.
+            Assert.False(lookup.IsCompleted);
+            await cancellationTokenSource.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal(1, chunkStore.Reads);
+        }
+
         // Helpers.
+        /// <summary>
+        /// A sequence feed on a frozen clock, over a store with its updates from index 0 to 10, where the read of
+        /// one index pends until its token is cancelled
+        /// </summary>
+        private static async Task<(SwarmSequenceFeed, PendingReadChunkStore, FakeTimeProvider)>
+            BuildFeedWithAPendingReadAsync(ulong pendingIndex)
+        {
+            var fakeTimeProvider = new FakeTimeProvider();
+            var sequenceFeed = new SwarmSequenceFeed(SequenceFeed.Owner, SequenceFeed.Topic, fakeTimeProvider);
+            var innerChunkStore = new MemoryChunkStore();
+            for (ulong i = 0; i <= 10; i++)
+                await innerChunkStore.AddAsync(BuildSequenceFeedChunk(i));
+            var pendingHash = sequenceFeed.BuildHash(new SwarmSequenceFeedIndex(pendingIndex), new Hasher());
+            return (sequenceFeed,
+                new PendingReadChunkStore(innerChunkStore, (hash, _) => hash == pendingHash),
+                fakeTimeProvider);
+        }
+
         private static SwarmSequenceFeedChunk BuildSequenceFeedChunk(ulong i)
         {
             var chunk = SwarmSequenceFeedChunk.BuildNew(
