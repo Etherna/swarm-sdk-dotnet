@@ -106,6 +106,18 @@ namespace Etherna.SwarmSdk.Models
                 cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Find the last update of the feed. The update at the known index, or at 0, is read first: if it doesn't
+        /// exist the feed has no update to answer. Then the indexes after it are probed concurrently on doubling
+        /// intervals, narrowing into the one where the updates stop
+        /// </summary>
+        /// <param name="knownNearIndex">An index known to exist, near the last one; null to start from 0</param>
+        /// <param name="chunkStore">The chunk store</param>
+        /// <param name="requestsCustomTimeout">The timeout of each probe after the first read, 10 seconds when
+        /// null. A probe with no answer within it counts as an update not found. The first read is not bounded by
+        /// it: it tells an empty feed from a feed with updates, and is bounded by the token and by the store</param>
+        /// <param name="cancellationToken">The cancellation token</param>
+        /// <returns>The last update found, or null if the first read finds none</returns>
         public async Task<SwarmSequenceFeedChunk?> TryFindLastFeedChunkAsync(
             SwarmSequenceFeedIndex? knownNearIndex,
             IReadOnlyChunkStore chunkStore,
@@ -174,12 +186,22 @@ namespace Etherna.SwarmSdk.Models
                         using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(pendingLookupsCts.Token, timeoutCts.Token);
 
                         var index = new SwarmSequenceFeedIndex(baseIndex.Value + ((ulong)1 << level) - 1);
-                        var chunk = await TryGetFeedChunkAsync(
-                            index,
-                            chunkStore,
-                            hasher,
-                            requestCts.Token).ConfigureAwait(false)
-                            as SwarmSequenceFeedChunk;
+                        SwarmSequenceFeedChunk? chunk;
+                        try
+                        {
+                            chunk = await TryGetFeedChunkAsync(
+                                index,
+                                chunkStore,
+                                hasher,
+                                requestCts.Token).ConfigureAwait(false)
+                                as SwarmSequenceFeedChunk;
+                        }
+                        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+                        {
+                            //a request with no answer within its timeout counts as a chunk not found, as in bee's
+                            //own lookup: the edge of the feed is a chunk the network doesn't serve
+                            chunk = null;
+                        }
 
                         // Evaluate result. Use semaphore on evaluation because of concurrent requests.
                         await semaphore.WaitAsync().ConfigureAwait(false);
