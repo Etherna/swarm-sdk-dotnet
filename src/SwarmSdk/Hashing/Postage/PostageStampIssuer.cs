@@ -12,6 +12,7 @@
 // You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
 // If not, see <https://www.gnu.org/licenses/>.
 
+using Etherna.SwarmSdk.Exceptions;
 using Etherna.SwarmSdk.Models;
 using System;
 
@@ -50,18 +51,18 @@ namespace Etherna.SwarmSdk.Hashing.Postage
         {
             var bucketId = hash.ToBucketId();
 
+            //the slots of a bucket are numbered from 0, as bee does: the collisions of a bucket are its next slot
             var collisions = _buckets.GetCollisions(bucketId);
-            if (collisions == BucketUpperBound)
+            if (collisions >= BucketUpperBound)
             {
                 if (PostageBatch.IsImmutable)
-                    throw new InvalidOperationException("Immutable postage overflowed");
+                    throw new PostageBucketFullException(PostageBatch.Id, bucketId);
                 HasSaturated = true;
                 _buckets.ResetBucketCollisions(bucketId);
                 collisions = 0;
             }
 
             _buckets.IncrementCollisions(bucketId);
-            collisions++;
 
             return new PostageBucketIndex(bucketId, collisions);
         }

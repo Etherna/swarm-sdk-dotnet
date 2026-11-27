@@ -133,6 +133,8 @@ const helloBucket = helloAddress.slice(0, 4);
 const firstStamp = StamperExports.StampChunk(stamper, helloAddress);
 checkStamp(firstStamp, helloAddress);
 const firstSlot = new DataView(firstStamp.buffer, firstStamp.byteOffset).getUint32(36);
+//the slots of a bucket are numbered from 0, as bee does
+assert.equal(firstSlot, 0);
 checkStamp(StamperExports.StampChunk(stamper, helloAddress), helloAddress, firstSlot);
 checkStamp(StamperExports.StampChunk(stamper, helloBucket + '00'.repeat(30)), helloBucket, firstSlot + 1);
 
