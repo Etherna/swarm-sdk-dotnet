@@ -21,6 +21,7 @@ using Etherna.SwarmSdk.Stores;
 using Moq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -166,6 +167,37 @@ namespace Etherna.SwarmSdk.Services
 
             // Assert.
             Assert.Equal(writes, count);
+        }
+
+        /// <summary>
+        /// A store completing its writes asynchronously makes the pipeline read the content after the call has handed
+        /// back its task: the array overload must keep its stream open until the pipeline ends
+        /// </summary>
+        [Fact]
+        public async Task WriteDataChunksAsyncReadsAnArrayPastTheFirstAsynchronousWrite()
+        {
+            // Setup.
+            var data = new byte[SwarmCac.DataSize * 3];
+            new Random(0).NextBytes(data);
+            var writesGate = new TaskCompletionSource();
+            var chunkStoreMock = new Mock<IChunkStore>();
+            chunkStoreMock
+                .Setup(s => s.AddAsync(It.IsAny<SwarmChunk>(), It.IsAny<CancellationToken>()))
+                .Returns(async () =>
+                {
+                    await writesGate.Task;
+                    return true;
+                });
+            var expected = await new ChunkService().WriteDataChunksAsync(new FakeChunkStore(), new MemoryStream(data));
+
+            // Run.
+            //with one chunk at a time, the second chunk waits for the first write, held until the call has returned
+            var writeTask = new ChunkService().WriteDataChunksAsync(chunkStoreMock.Object, data, chunkCuncorrency: 1);
+            writesGate.SetResult();
+            var reference = await writeTask;
+
+            // Assert.
+            Assert.Equal(expected, reference);
         }
     }
 }

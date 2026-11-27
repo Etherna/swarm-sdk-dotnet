@@ -3337,7 +3337,7 @@ namespace Etherna.SwarmSdk
                 cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        public Task<SwarmHash> UploadChunkAsync(
+        public async Task<SwarmHash> UploadChunkAsync(
             SwarmCac chunk,
             PostageBatchId? batchId,
             TagId? tagId = null,
@@ -3345,16 +3345,14 @@ namespace Etherna.SwarmSdk
             CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(chunk);
-            
-#pragma warning disable CA2025
+
             using var memoryStream = new MemoryStream(chunk.GetFullPayloadToByteArray());
-            return UploadChunkAsync(
+            return await UploadChunkAsync(
                 memoryStream,
                 batchId,
                 tagId,
                 presignedPostageStamp,
-                cancellationToken);
-#pragma warning restore CA2025
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SwarmHash> UploadChunkAsync(

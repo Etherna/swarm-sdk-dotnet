@@ -389,7 +389,7 @@ namespace Etherna.SwarmSdk.Services
                 postageStamper.StampIssuer);
         }
 
-        public Task<SwarmReference> WriteDataChunksAsync(
+        public async Task<SwarmReference> WriteDataChunksAsync(
             IChunkStore chunkStore,
             byte[] data,
             IPostageStampIssuer? postageStampIssuer = null,
@@ -399,9 +399,8 @@ namespace Etherna.SwarmSdk.Services
             int? chunkCuncorrency = null,
             CancellationToken cancellationToken = default)
         {
-#pragma warning disable CA2025
             using var stream = new MemoryStream(data);
-            return WriteDataChunksAsync(
+            return await WriteDataChunksAsync(
                 chunkStore,
                 stream,
                 postageStampIssuer,
@@ -409,8 +408,7 @@ namespace Etherna.SwarmSdk.Services
                 encrypt,
                 redundancyLevel,
                 chunkCuncorrency,
-                cancellationToken);
-#pragma warning restore CA2025
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SwarmReference> WriteDataChunksAsync(

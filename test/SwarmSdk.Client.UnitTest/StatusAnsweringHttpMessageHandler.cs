@@ -23,7 +23,7 @@ namespace Etherna.SwarmSdk
 {
     /// <summary>
     /// An HTTP handler answering every request with one status code, body and set of headers, recording the
-    /// requests
+    /// requests and their bodies
     /// </summary>
     public sealed class StatusAnsweringHttpMessageHandler(
         HttpStatusCode statusCode,
@@ -33,14 +33,26 @@ namespace Etherna.SwarmSdk
         : HttpMessageHandler
     {
         // Properties.
+        /// <summary>
+        /// A task the handler waits for before it reads the body of a request, as a transport sending the body once
+        /// its connection is ready; null to read it at once
+        /// </summary>
+        public Task? BodyReadingGate { get; set; }
+        public List<byte[]?> RequestBodies { get; } = [];
         public List<HttpRequestMessage> Requests { get; } = [];
         
         // Methods.
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             Requests.Add(request);
+            if (BodyReadingGate is not null)
+                await BodyReadingGate;
+            RequestBodies.Add(request.Content is null
+                ? null
+                : await request.Content.ReadAsByteArrayAsync(cancellationToken));
+            
             var response = new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(content, Encoding.UTF8, "application/json"),
@@ -55,7 +67,7 @@ namespace Etherna.SwarmSdk
             //a content lists its length among its headers only when it is declared, as a node does
             if (declaresContentLength)
                 response.Content.Headers.ContentLength = Encoding.UTF8.GetByteCount(content);
-            return Task.FromResult(response);
+            return response;
         }
     }
 }
