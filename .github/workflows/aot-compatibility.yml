@@ -39,3 +39,32 @@ jobs:
       # Run the native binary so AOT issues that only surface at runtime also fail CI.
       - name: Run AOT smoke test
         run: ./test/SwarmSdk.AotCompatibility/bin/Release/net10.0/linux-x64/publish/SwarmSdk.AotCompatibility
+
+  # The WebAssembly host has no unit tests: publish it and run every export on Node against the values a bee node
+  # computes, and against a recording HTTP server for the uploads; then run its JavaScript API end to end against a
+  # fake bee node. The publish compiles ahead of time, with the wasm-tools workload.
+  verify-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      - name: Publish the WebAssembly host
+        run: dotnet publish src/SwarmSdk.Wasm/SwarmSdk.Wasm.csproj -c Release -o wasm-publish
+
+      - name: Run WebAssembly smoke test
+        run: node test/SwarmSdk.Wasm.SmokeTest/smoke.mjs wasm-publish/wwwroot/_framework
+
+      - name: Run JavaScript API test
+        run: node test/SwarmSdk.Wasm.SmokeTest/sdk.mjs wasm-publish/wwwroot

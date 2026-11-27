@@ -768,6 +768,34 @@ namespace Etherna.SwarmSdk
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
         }
         
+        [Theory]
+        [InlineData(SwarmClients.Bee)]
+        [InlineData(SwarmClients.Beehive)]
+        public async Task UploadChunkSendsThePayloadOfTheChunk(SwarmClients apiCompatibility)
+        {
+            // Setup.
+            var spanData = new byte[SwarmCac.SpanSize + 100];
+            SwarmCac.WriteSpan(100, spanData);
+            new Random(0).NextBytes(spanData.AsSpan(SwarmCac.SpanSize));
+            var chunk = new SwarmCac(new SwarmChunkBmt().Hash(spanData), spanData);
+            var handler = new StatusAnsweringHttpMessageHandler(
+                HttpStatusCode.Created,
+                $$"""{"reference":"{{chunk.Hash}}"}""");
+            var bodyReadingGate = new TaskCompletionSource();
+            handler.BodyReadingGate = bodyReadingGate.Task;
+            using var swarmClient = new SwarmClient(nodeUrl, apiCompatibility, new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan });
+            
+            // Run.
+            //the body is read once the call has handed back its task, as a transport reads it after connecting
+            var uploadTask = swarmClient.UploadChunkAsync(chunk, batchId);
+            bodyReadingGate.SetResult();
+            var hash = await uploadTask;
+            
+            // Assert.
+            Assert.Equal(chunk.Hash, hash);
+            Assert.Equal(spanData, Assert.Single(handler.RequestBodies));
+        }
+        
         [Fact]
         public async Task WithdrawFromChequebookInBeeModeSendsAnAmountAndAGasPriceAboveLongAsIntegerStrings()
         {

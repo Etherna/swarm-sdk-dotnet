@@ -1,33 +1,25 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+// Copyright 2021-present Etherna SA
+// This file is part of SwarmSDK.
+//
+// SwarmSDK is free software: you can redistribute it and/or modify it under the terms of the
+// GNU Lesser General Public License as published by the Free Software Foundation,
+// either version 3 of the License, or (at your option) any later version.
+//
+// SwarmSDK is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License along with SwarmSDK.
+// If not, see <https://www.gnu.org/licenses/>.
 
-import { dotnet } from './_framework/dotnet.js'
+// A sample page of the JavaScript API: it hashes a file, as a bee node does on its bzz endpoint.
 
-const { setModuleImports, getAssemblyExports, getConfig } = await dotnet
-    .withDiagnosticTracing(false)
-    .withApplicationArgumentsFromQuery()
-    .create();
+import { loadSwarmSdk } from './swarm-sdk.js';
 
-setModuleImports('main.js', {
-    window: {
-        location: {
-            href: () => globalThis.window.location.href
-        }
-    }
-});
+const sdk = await loadSwarmSdk();
+const { reference } = await sdk.content.hashFile(
+    new TextEncoder().encode('Bzz over the world!'),
+    { contentType: 'text/plain', fileName: 'hello.txt' });
 
-const config = getConfig();
-const exports = await getAssemblyExports(config.mainAssemblyName);
-
-let utf8Encode = new TextEncoder();
-let array = utf8Encode.encode("Bzz over the world!");
-
-const hash = await exports.SwarmSdkWasmUtil.GetHashStringAsync(
-    array,
-    "text/plain",
-    "hello.txt"
-);
-console.log(hash);
-
-document.getElementById('out').innerHTML = hash;
-await dotnet.run();
+console.log(reference);
+document.getElementById('out').textContent = reference;
